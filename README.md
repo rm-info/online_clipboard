@@ -4,8 +4,6 @@ Secure, ephemeral clipboard sharing between machines that cannot communicate dir
 Designed for RDP sessions where clipboard sync is disabled, or any scenario requiring
 a quick, passwordless (or password-protected) data transfer between two browsers.
 
-> Made by RAM for FPS — v1.0.0
-
 ---
 
 ## How it works
@@ -170,7 +168,7 @@ pytest tests/ -v
                                               │                            │
                                          [Manual wipe]            [2h inactivity]
                                               │                            │
-                                              └──────────►[Ended]◄────────┘
+                                              └──────────►[Ended]◄─────────┘
                                                               │
                                                     [Data permanently gone]
 ```
