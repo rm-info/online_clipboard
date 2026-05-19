@@ -17,8 +17,11 @@ Routes:
 
 Cookie design:
   clip_auth_{sid}  — httponly, secure: proves authentication (value="1")
-  clip_pwd_{sid}   — httponly, secure: stores password server-side so JS
-                     never needs to know it. Empty string if no password.
+  clip_pwd_{sid}   — httponly, secure: holds the password in the browser
+                     cookie store, out of reach of page JS. Server reads
+                     it on each request to derive the key; nothing about
+                     the password is persisted server-side. Empty string
+                     if no password.
 """
 
 import asyncio

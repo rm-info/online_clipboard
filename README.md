@@ -38,9 +38,32 @@ A **QR-code button** next to the session URL opens a scannable modal — handy f
 
 ### Password handling
 
-The password is stored server-side in an `httponly` cookie — JavaScript never has access to it.  
-Whether a session has a password or not is never revealed to unauthenticated visitors.  
+The password lives in an `httponly`, `secure`, `samesite=strict` cookie on the browser
+side, out of reach of page JavaScript. The server reads it on each request to derive
+the Argon2id key, then drops it — never persisted in Redis or on disk server-side.
+
+Whether a session has a password or not is never revealed to unauthenticated visitors.
 Submitting a non-empty password on a passwordless session is treated as a wrong password.
+
+### Trust boundaries
+
+What at-rest encryption protects against:
+
+- Redis dump theft, disk leak, server backups — useless without the password.
+- Page-level XSS — the password sits in an `httponly` cookie, so an injected script
+  cannot read it via `document.cookie`.
+- CSRF — `samesite=strict` keeps the cookie out of cross-site requests.
+
+What it does **not** protect against:
+
+- A malicious or compromised operator. The password rides in the cookie on every
+  request, and the server also holds the pepper. Anyone with code execution on the
+  live server can decrypt active sessions.
+- Anything with access to the user's cookie store: certain browser devtools modes
+  that surface `httponly` cookies, malware running under the user account, the device
+  owner themselves.
+- The session URL itself. Whoever has it can attempt to authenticate; the password
+  (if set) is the only barrier from that point.
 
 ### Session IDs
 

@@ -357,6 +357,14 @@
       color: var(--fg);
       border-color: var(--border-hi);
     }
+    /* Variant: persistent info-blue tint (used by the privacy button so
+       its purpose reads at a glance without competing with --warn alerts). */
+    .icon-btn.icon-btn-info { color: var(--info); }
+    .icon-btn.icon-btn-info:hover,
+    .icon-btn.icon-btn-info:focus-visible {
+      color: var(--info);
+      border-color: var(--info);
+    }
     .btn-danger {
       color: var(--danger);
       background: rgba(255, 92, 114, 0.08);
@@ -669,7 +677,7 @@
           <a class="lang-link{% if code == lang %} active{% endif %}" href="?lang={{ code }}">{{ tr["lang_" + code] }}</a>
           {% endfor %}
         </nav>
-        <button class="icon-btn" type="button" id="privacyBtn"
+        <button class="icon-btn icon-btn-info" type="button" id="privacyBtn"
                 title="{{ tr.privacy_button_label }}"
                 aria-label="{{ tr.privacy_button_label }}">
           {{ icon_cookie() }}
@@ -702,6 +710,13 @@
         <h4>{{ tr.privacy_data_heading }}</h4>
         <p>{{ tr.privacy_data_content }}</p>
         <p>{{ tr.privacy_data_ip }}</p>
+
+        <h4>{{ tr.privacy_limits_heading }}</h4>
+        <ul>
+          <li>{{ tr.privacy_limit_operator }}</li>
+          <li>{{ tr.privacy_limit_device }}</li>
+          <li>{{ tr.privacy_limit_url }}</li>
+        </ul>
 
         <h4>{{ tr.privacy_not_doing_heading }}</h4>
         <p>{{ tr.privacy_not_doing_text }}</p>
