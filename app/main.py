@@ -343,12 +343,14 @@ async def session_page(request: Request, sid: str):
             file_max=_human_bytes(FILE_MAX_SIZE_BYTES, lang),
             session_max=_human_bytes(SESSION_FILE_MAX_BYTES, lang),
         )
+        expires_at = await sess.get_session_expires_at(sid)
         return _render_template(
             request,
             "session.html",
             {
                 "sid": sid,
                 "ttl": SESSION_TTL_SECONDS,
+                "expires_at": expires_at or 0,
                 "file_max_size": FILE_MAX_SIZE_BYTES,
                 "session_file_max_bytes": SESSION_FILE_MAX_BYTES,
                 "upload_limits_text": upload_limits_text,
@@ -396,7 +398,11 @@ async def authenticate(
         return JSONResponse({"error": "wrong_password", "attempts_remaining": remaining}, status_code=401)
 
     await sec.record_success(ip)
-    await sess.touch_session(sid)
+    # NB: we intentionally do NOT call touch_session here. Auth is a read
+    # operation that proves you know the password — it must not extend the
+    # session lifetime. Only write actions (add_item, save_file) refresh
+    # the TTL; otherwise anyone with the password could keep a session
+    # alive indefinitely by re-authenticating every ~2 hours.
     response = RedirectResponse(url=f"/{sid}", status_code=status.HTTP_303_SEE_OTHER)
     _set_session_cookies(response, sid, password)
     _set_language_cookie(response, _get_language(request))

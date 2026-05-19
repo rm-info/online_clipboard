@@ -297,6 +297,12 @@ async def session_has_password(sid: str) -> bool:
     return val == "1"
 
 
+async def get_session_expires_at(sid: str) -> Optional[int]:
+    r = await get_redis()
+    val = await r.hget(_key_meta(sid), "expires_at")
+    return int(val) if val else None
+
+
 async def get_session_file_bytes(sid: str) -> int:
     r = await get_redis()
     raw = await r.get(_key_file_bytes(sid))
