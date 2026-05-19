@@ -17,6 +17,7 @@ a quick, passwordless (or password-protected) data transfer between two browsers
 Sessions can also be wiped manually at any time via the "Wipe session" button.
 
 The UI is available in **English and French** (auto-detected from `Accept-Language`, switchable via the language toggle in the header).
+A **QR-code button** next to the session URL opens a scannable modal — handy for handing off a session from a desktop to a phone without typing the link.
 
 ---
 
@@ -112,7 +113,7 @@ clipboard.your.domain {
 │   ├── security.py     # IP rate limiting (auth + per-action quotas)
 │   ├── config.py       # Environment configuration
 │   ├── i18n.py         # EN/FR translations
-│   ├── static/         # Static assets
+│   ├── static/         # Static assets (incl. vendored qrcode-generator)
 │   └── templates/
 │       ├── base.html       # Base layout + styles + lang switch
 │       ├── index.html      # Session creation form + mobile info modal
@@ -154,7 +155,7 @@ clipboard.your.domain {
 | `CREATE_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the create quota (1 hour) |
 | `UPLOAD_RATE_LIMIT_MAX` | `60` | Per-IP uploads allowed in `UPLOAD_RATE_LIMIT_WINDOW_SECONDS`. Set ≤ 0 to disable. |
 | `UPLOAD_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the upload quota (1 hour) |
-| `APP_VERSION` | `1.2.0` | Version displayed in the footer |
+| `APP_VERSION` | `1.3.0` | Version displayed in the footer |
 | `DEBUG` | `false` | Enable FastAPI debug mode and `/docs` endpoint |
 
 ---
