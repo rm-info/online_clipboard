@@ -15,6 +15,9 @@
 {%- macro icon_upload() -%}
 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
 {%- endmacro -%}
+{%- macro icon_cookie() -%}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M11 17v.01"/><path d="M7 14v.01"/></svg>
+{%- endmacro -%}
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
@@ -599,6 +602,31 @@
       outline: none;
     }
 
+    /* Privacy modal is denser than the QR overlay — widen it and style the
+       structured content (sections, cookie list, inline code names). */
+    .modal-card.modal-card-wide { max-width: 640px; }
+    .privacy-body { color: var(--fg-dim); font-size: .92rem; line-height: 1.6; }
+    .privacy-body > p:first-child { margin-top: 0; }
+    .privacy-body h4 {
+      margin: 16px 0 6px;
+      color: var(--fg);
+      font-family: var(--mono);
+      font-size: .74rem;
+      font-weight: 600;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .privacy-body ul { margin: 6px 0 0; padding-left: 0; list-style: none; }
+    .privacy-body li + li { margin-top: 8px; }
+    .privacy-body code {
+      font-family: var(--mono);
+      font-size: .82rem;
+      padding: 1px 6px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      color: var(--fg);
+    }
+
     @media (max-width: 1100px) {
       .shell { width: min(100vw - 14px, 1180px); }
       .header {
@@ -641,6 +669,11 @@
           <a class="lang-link{% if code == lang %} active{% endif %}" href="?lang={{ code }}">{{ tr["lang_" + code] }}</a>
           {% endfor %}
         </nav>
+        <button class="icon-btn" type="button" id="privacyBtn"
+                title="{{ tr.privacy_button_label }}"
+                aria-label="{{ tr.privacy_button_label }}">
+          {{ icon_cookie() }}
+        </button>
         {% block header_extras %}{% endblock %}
       </div>
     </header>
@@ -649,5 +682,49 @@
 
     <footer>v{{ app_version }}</footer>
   </div>
+
+  <div class="modal-scrim" id="privacyOverlay" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-head">
+        <p class="modal-title" id="privacyTitle">{{ tr.privacy_title }}</p>
+        <button class="modal-close" type="button" id="privacyClose">{{ tr.close }}</button>
+      </div>
+      <div class="privacy-body">
+        <p>{{ tr.privacy_intro }}</p>
+
+        <h4>{{ tr.privacy_cookies_heading }}</h4>
+        <ul>
+          <li><code>clip_auth_&lt;id&gt;</code> — {{ tr.privacy_cookie_auth_purpose }}</li>
+          <li><code>clip_pwd_&lt;id&gt;</code> — {{ tr.privacy_cookie_pwd_purpose }}</li>
+          <li><code>clip_lang</code> — {{ tr.privacy_cookie_lang_purpose }}</li>
+        </ul>
+
+        <h4>{{ tr.privacy_data_heading }}</h4>
+        <p>{{ tr.privacy_data_content }}</p>
+        <p>{{ tr.privacy_data_ip }}</p>
+
+        <h4>{{ tr.privacy_not_doing_heading }}</h4>
+        <p>{{ tr.privacy_not_doing_text }}</p>
+
+        <h4>{{ tr.privacy_lifetime_heading }}</h4>
+        <p>{{ tr.privacy_lifetime_text }}</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const overlay = document.getElementById('privacyOverlay');
+      const btn = document.getElementById('privacyBtn');
+      const closeBtn = document.getElementById('privacyClose');
+      if (!overlay || !btn) return;
+      const open = () => overlay.classList.add('open');
+      const close = () => overlay.classList.remove('open');
+      btn.addEventListener('click', open);
+      closeBtn.addEventListener('click', close);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
+    })();
+  </script>
 </body>
 </html>
