@@ -629,32 +629,8 @@
       letter-spacing: .14em;
       text-transform: uppercase;
     }
-    /* Modal close button — danger-red X icon, true 38x38 circle.
-       The red tint is the standard "destructive/dismiss" affordance and
-       matches the visual language of .icon-btn-danger on per-item delete. */
-    .modal-close {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      min-width: 38px;
-      height: 38px;
-      padding: 0;
-      border: 1px solid rgba(255, 92, 114, 0.35);
-      border-radius: 999px;
-      background: rgba(255, 92, 114, 0.06);
-      color: var(--danger);
-      cursor: pointer;
-      transition: color .15s, border-color .15s, background .15s;
-    }
-    .modal-close:hover,
-    .modal-close:focus-visible {
-      color: #ff7a8d;
-      border-color: var(--danger);
-      outline: none;
-      background: rgba(255, 92, 114, 0.14);
-    }
-    .modal-close svg { display: block; width: 18px; height: 18px; }
+    /* Modal close buttons reuse .icon-btn directly (38x38 neutral circle with
+       accent-green hover), so no dedicated .modal-close styling is needed. */
 
     /* Site-info modal is denser than the QR overlay — widen it and style the
        structured content (sections, cookie list, inline code names). DOM hooks
@@ -744,7 +720,7 @@
     <div class="modal-card modal-card-wide">
       <div class="modal-head">
         <p class="modal-title" id="siteInfoTitle">{{ tr.privacy_title }}</p>
-        <button class="modal-close" type="button" id="siteInfoClose" onclick="closeSiteInfoModal()" title="{{ tr.close }}" aria-label="{{ tr.close }}">{{ icon_x() }}</button>
+        <button class="icon-btn" type="button" id="siteInfoClose" onclick="closeSiteInfoModal()" title="{{ tr.close }}" aria-label="{{ tr.close }}">{{ icon_x() }}</button>
       </div>
       <div class="info-body">
         <p>{{ tr.privacy_intro }}</p>
