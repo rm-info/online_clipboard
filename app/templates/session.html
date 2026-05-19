@@ -25,8 +25,13 @@
   .timeline-panel,
   .sidebar-stack {
     display: grid;
-    gap: 12px;
+    gap: 10px;
   }
+  /* .panel + .panel adds margin-top: 10px globally for block-stacked panels.
+     Inside a grid container that already provides `gap`, that margin doubles
+     the spacing. Zero it here so adjacent panels in the sidebar respect just
+     the grid gap and match the rest of the app's panel spacing. */
+  .sidebar-stack > .panel + .panel { margin-top: 0; }
   .timeline-list {
     display: grid;
     gap: 6px;

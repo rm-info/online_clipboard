@@ -762,22 +762,26 @@
   </div>
 
   <script>
-    // Open/close are global so the modal works even if a script earlier in
-    // the page throws and prevents a normal IIFE from registering listeners
-    // (the previous addEventListener-based wiring stopped firing after a
-    // late template addition shadowed something — onclick is the durable
-    // surface). The IIFE below only wires the soft-close affordances.
-    function openPrivacyModal() {
-      document.getElementById('privacyOverlay').classList.add('open');
-    }
-    function closePrivacyModal() {
-      document.getElementById('privacyOverlay').classList.remove('open');
-    }
+    // Exposed on window so inline onclick handlers can find them. Diagnostic
+    // logs stay in place until we confirm the click flow works for every
+    // user agent — an earlier user could click without the modal opening
+    // and no error reaching the console, so we want explicit signal.
+    window.openPrivacyModal = function openPrivacyModal() {
+      console.log('[privacy] openPrivacyModal called');
+      const o = document.getElementById('privacyOverlay');
+      if (!o) { console.error('[privacy] #privacyOverlay not found in DOM'); return; }
+      o.classList.add('open');
+      console.log('[privacy] classList now:', o.className, '| computed display:', getComputedStyle(o).display);
+    };
+    window.closePrivacyModal = function closePrivacyModal() {
+      const o = document.getElementById('privacyOverlay');
+      if (o) o.classList.remove('open');
+    };
     (() => {
       const overlay = document.getElementById('privacyOverlay');
       if (!overlay) return;
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) closePrivacyModal(); });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) closePrivacyModal(); });
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closePrivacyModal(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) window.closePrivacyModal(); });
     })();
   </script>
 </body>
