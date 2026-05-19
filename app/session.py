@@ -213,8 +213,8 @@ def _entry_ref(kind: str, entry_id: str) -> str:
     return f"{kind}:{entry_id}"
 
 
-def _make_text_meta(item_id: str, size: int) -> dict:
-    return {"id": item_id, "size": size, "created_at": _now()}
+def _make_text_meta(item_id: str, size: int, secret: bool = False) -> dict:
+    return {"id": item_id, "size": size, "created_at": _now(), "secret": bool(secret)}
 
 
 def _make_file_meta(file_id: str, filename: str, stored_name: str, size: int) -> dict:
@@ -232,10 +232,11 @@ async def _append_text_entry(
     sid: str,
     plaintext: str,
     key: bytes,
+    secret: bool = False,
 ) -> dict:
     token = encrypt(plaintext, key)
     item_id = uuid.uuid4().hex
-    meta = _make_text_meta(item_id, len(plaintext.encode("utf-8")))
+    meta = _make_text_meta(item_id, len(plaintext.encode("utf-8")), secret=secret)
 
     async with r.pipeline(transaction=True) as pipe:
         pipe.rpush(_key_items(sid), token)
@@ -254,6 +255,7 @@ async def create_session(
     first_item: str,
     password: str,
     secure_mode: bool = False,
+    secret: bool = False,
 ) -> tuple[str, bytes]:
     """Returns (sid, key) — caller stores the key in the user's cookie."""
     r = await get_redis()
@@ -278,7 +280,7 @@ async def create_session(
         if not results[0]:
             continue
 
-        await _append_text_entry(r, sid, first_item, key)
+        await _append_text_entry(r, sid, first_item, key, secret=secret)
         await r.set(_key_file_bytes(sid), 0, ex=SESSION_TTL_SECONDS)
         await _refresh_ttl(r, sid)
         return sid, key
@@ -396,9 +398,9 @@ async def verify_password(sid: str, password: str) -> Optional[bytes]:
         return None
 
 
-async def add_item(sid: str, plaintext: str, key: bytes) -> None:
+async def add_item(sid: str, plaintext: str, key: bytes, secret: bool = False) -> None:
     r = await get_redis()
-    await _append_text_entry(r, sid, plaintext, key)
+    await _append_text_entry(r, sid, plaintext, key, secret=secret)
     await _refresh_ttl(r, sid)
     await r.publish(_channel(sid), "new_item")
 
@@ -588,6 +590,7 @@ async def get_session_contents(sid: str, key: bytes) -> dict:
             "text": text,
             "size": meta["size"],
             "created_at": meta["created_at"],
+            "secret": bool(meta.get("secret", False)),
         }
 
     file_entries: dict[str, dict] = {}

@@ -305,6 +305,7 @@ async def create_session(
     text: Annotated[str, Form()],
     password: Annotated[str, Form()] = "",
     secure_mode: Annotated[bool, Form()] = False,
+    secret: Annotated[bool, Form()] = False,
 ):
     ip = get_client_ip(request)
 
@@ -334,6 +335,7 @@ async def create_session(
         first_item=text,
         password=password,
         secure_mode=secure_mode,
+        secret=secret,
     )
 
     response = RedirectResponse(url=f"/{sid}", status_code=status.HTTP_303_SEE_OTHER)
@@ -384,6 +386,8 @@ async def session_page(request: Request, sid: str):
                 "delete_file_title",
                 "delete_aria_item",
                 "delete_aria_file",
+                "reveal",
+                "hide",
             )
         }
         lang = _get_language(request)
@@ -506,6 +510,7 @@ async def add_item(
     request: Request,
     sid: str,
     text: Annotated[str, Form()],
+    secret: Annotated[bool, Form()] = False,
 ):
     if not await _is_authenticated(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
@@ -521,7 +526,7 @@ async def add_item(
         raise HTTPException(status_code=413, detail="Text too large.")
 
     key = _get_key(request, sid)
-    await sess.add_item(sid, text, key)
+    await sess.add_item(sid, text, key, secret=secret)
     response = JSONResponse({"ok": True})
     await _refresh_session_cookies(response, request, sid)
     return response

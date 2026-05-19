@@ -63,6 +63,14 @@
       <span class="toggle-hint" id="secureHint">{{ tr.short_id_hint }}</span>
     </div>
 
+    <div class="toggle-row" title="{{ tr.secret_mode_hint }}">
+      <label class="switch">
+        <input type="checkbox" name="secret" id="secret" value="true">
+        <span class="switch-track"></span>
+      </label>
+      <label class="toggle-label" for="secret">{{ tr.secret_mode }}</label>
+    </div>
+
     <div class="flex-row flex-end">
       <button type="submit" class="btn btn-primary" id="submitBtn">{{ icon_arrow_right() }}<span class="btn-label">{{ tr.create_session }}</span></button>
     </div>
@@ -107,6 +115,13 @@
   toggle.addEventListener('change', () => {
     hint.textContent = toggle.checked ? tr.long_id_hint : tr.short_id_hint;
   });
+
+  const secretInput = document.getElementById('secret');
+  if (secretInput) {
+    secretInput.addEventListener('change', () => {
+      document.getElementById('text').classList.toggle('textarea-secret', secretInput.checked);
+    });
+  }
 
   function formatSize(bytes) {
     if (bytes === 0) return '0 B';

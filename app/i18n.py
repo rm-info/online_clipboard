@@ -136,6 +136,11 @@ TRANSLATIONS = {
         "delete_confirm_text": "This entry will be removed immediately and cannot be recovered.",
         "delete_aria_item": "Delete message",
         "delete_aria_file": "Delete file",
+        "secret_mode": "Secret mode",
+        "secret_mode_hint": "Masks both typing and display — useful when others might see your screen.",
+        "secret_mask_note": "Input masking uses -webkit-text-security; on Firefox the typed text stays visible (display masking still works).",
+        "reveal": "Reveal",
+        "hide": "Hide",
     },
     "fr": {
         "app_name": "presse-papiers en ligne",
@@ -265,6 +270,11 @@ TRANSLATIONS = {
         "delete_confirm_text": "Cet élément sera retiré immédiatement et ne pourra pas être récupéré.",
         "delete_aria_item": "Supprimer le message",
         "delete_aria_file": "Supprimer le fichier",
+        "secret_mode": "Mode secret",
+        "secret_mode_hint": "Masque la saisie et l’affichage — pratique quand quelqu’un peut voir ton écran.",
+        "secret_mask_note": "Le masquage de la saisie utilise -webkit-text-security ; sur Firefox le texte tapé reste visible (le masquage à l’affichage marche quand même).",
+        "reveal": "Afficher",
+        "hide": "Masquer",
     },
 }
 
