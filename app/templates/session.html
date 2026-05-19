@@ -560,18 +560,17 @@
       return `
         <article class="item-card entry-card" id="${anchorId}">
           <div class="item-card-header">
-            <div>
-              <div class="entry-badge">${icon}${label}</div>
-              <div class="entry-title" style="margin-top:12px;">${escapeHtml(entry.name)}</div>
+            <div class="entry-meta">
+              <span class="entry-badge">${icon}${label}</span>
+              <span>#${String(index + 1).padStart(2, '0')}</span>
+              <span>${formatWhen(when)}</span>
+              <span>${formatSize(entry.size)}</span>
             </div>
             <div class="entry-actions">
               <a class="icon-btn" href="/${sid}/files/${entry.id}" title="${I18N.download}">${ICON_DOWNLOAD}</a>
             </div>
           </div>
-          <div class="entry-meta">
-            <span>${formatSize(entry.size)}</span>
-            <span>${I18N.uploaded_at} ${formatWhen(when)}</span>
-          </div>
+          <div class="entry-title">${escapeHtml(entry.name)}</div>
         </article>
       `;
     }).join('');

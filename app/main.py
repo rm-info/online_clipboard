@@ -333,7 +333,6 @@ async def session_page(request: Request, sid: str):
                 "status_used",
                 "item_label",
                 "file_label",
-                "uploaded_at",
             )
         }
         lang = _get_language(request)

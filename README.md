@@ -155,7 +155,7 @@ clipboard.your.domain {
 | `CREATE_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the create quota (1 hour) |
 | `UPLOAD_RATE_LIMIT_MAX` | `60` | Per-IP uploads allowed in `UPLOAD_RATE_LIMIT_WINDOW_SECONDS`. Set ≤ 0 to disable. |
 | `UPLOAD_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the upload quota (1 hour) |
-| `APP_VERSION` | `1.3.1` | Version displayed in the footer |
+| `APP_VERSION` | `1.3.2` | Version displayed in the footer |
 | `DEBUG` | `false` | Enable FastAPI debug mode and `/docs` endpoint |
 
 ---
@@ -236,7 +236,7 @@ healthcheck.io, k8s probes, etc.):
   "disk_cap_bytes": 10737418240,
   "disk_ratio": 0.0,
   "warn_ratio": 0.8,
-  "version": "1.3.1"
+  "version": "1.3.2"
 }
 ```
 
