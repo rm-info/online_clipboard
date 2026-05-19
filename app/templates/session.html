@@ -543,7 +543,7 @@
   function copyItem(btn, id) {
     // Read from data-real so secret-mode (masked) items still copy the
     // actual plaintext, not the bullet characters shown on screen.
-    const el = document.getElementById(`entry-text-${id}`);
+    const el = document.getElementById(`entry-body-${id}`);
     const text = el.dataset.real ?? el.textContent;
     navigator.clipboard.writeText(text);
     btn.classList.add('copied');
@@ -551,7 +551,7 @@
   }
 
   function toggleReveal(id, btn) {
-    const el = document.getElementById(`entry-text-${id}`);
+    const el = document.getElementById(`entry-body-${id}`);
     const isHidden = btn.getAttribute('data-mode') === 'hidden';
     if (isHidden) {
       el.textContent = el.dataset.real || '';
@@ -616,7 +616,7 @@
                 <button class="icon-btn" onclick="copyItem(this, '${entry.id}')" title="${I18N.copy}">${ICON_COPY}${ICON_CHECK}</button>
               </div>
             </div>
-            <div class="item-text${isSecret ? ' secret' : ''}" id="entry-text-${entry.id}" data-real="${escapedReal}">${visibleHtml}</div>
+            <div class="item-text${isSecret ? ' secret' : ''}" id="entry-body-${entry.id}" data-real="${escapedReal}">${visibleHtml}</div>
           </article>
         `;
       }
