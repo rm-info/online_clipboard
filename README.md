@@ -33,14 +33,17 @@ A **QR-code button** next to the session URL opens a scannable modal — handy f
 | Auth brute-force | IP rate limiting on bad passwords → temp ban → permanent ban |
 | Anti-bot | Per-IP quotas on session creation and file upload (429 + `Retry-After`) |
 | Session lockdown | Auto-lock after too many failed attempts, data wiped immediately |
-| No plaintext | Data never stored unencrypted, password never visible in JS |
+| No plaintext | Data never stored unencrypted; user password never written anywhere — only the Argon2id-derived key is held, in an `httponly` cookie |
 | File storage | Encrypted files stored ephemerally on disk, deleted with the session |
 
 ### Password handling
 
-The password lives in an `httponly`, `secure`, `samesite=strict` cookie on the browser
-side, out of reach of page JavaScript. The server reads it on each request to derive
-the Argon2id key, then drops it — never persisted in Redis or on disk server-side.
+The user-typed password is never persisted anywhere — not in Redis, not on disk, not
+even in a cookie. At session creation and at auth verification, the server derives a
+32-byte AES key via `Argon2id(password, salt=session_id, pepper=CLIPBOARD_SERVER_SECRET)`
+and stores the **derived key** (base64) in an `httponly`, `secure`, `samesite=strict`
+cookie named `clip_key_<sid>`. Subsequent requests use that key directly for AES-GCM
+encrypt/decrypt — Argon2id runs once per auth, not once per request.
 
 Whether a session has a password or not is never revealed to unauthenticated visitors.
 Submitting a non-empty password on a passwordless session is treated as a wrong password.
@@ -49,19 +52,25 @@ Submitting a non-empty password on a passwordless session is treated as a wrong 
 
 What at-rest encryption protects against:
 
-- Redis dump theft, disk leak, server backups — useless without the password.
-- Page-level XSS — the password sits in an `httponly` cookie, so an injected script
-  cannot read it via `document.cookie`.
+- Redis dump theft, disk leak, server backups — useless without the derived key.
+  Even if an attacker also extracts the pepper, they still need to brute-force the
+  password through Argon2id, which is intentionally slow.
+- Page-level XSS — the derived key sits in an `httponly` cookie, so an injected
+  script cannot read it via `document.cookie`.
 - CSRF — `samesite=strict` keeps the cookie out of cross-site requests.
+- Password reuse leakage — the cookie holds the derived key, not the user-typed
+  password. Whoever reads the cookie can decrypt this session but cannot recover
+  the password for use elsewhere.
 
 What it does **not** protect against:
 
-- A malicious or compromised operator. The password rides in the cookie on every
-  request, and the server also holds the pepper. Anyone with code execution on the
-  live server can decrypt active sessions.
+- A malicious or compromised operator. The derived key rides in the cookie on every
+  request, and the server holds the pepper. Anyone with code execution on the live
+  server can decrypt active sessions.
 - Anything with access to the user's cookie store: certain browser devtools modes
   that surface `httponly` cookies, malware running under the user account, the device
-  owner themselves.
+  owner themselves. They get the derived key — same effect as having the password
+  for this session.
 - The session URL itself. Whoever has it can attempt to authenticate; the password
   (if set) is the only barrier from that point.
 

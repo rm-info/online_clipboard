@@ -43,7 +43,7 @@ from config import (
     TOTAL_FILE_MAX_BYTES,
     UPLOAD_ROOT,
 )
-from crypto import decrypt, decrypt_bytes, encrypt, encrypt_bytes, generate_session_id
+from crypto import decrypt, decrypt_bytes, derive_key, encrypt, encrypt_bytes, generate_session_id
 
 
 _redis: Optional[aioredis.Redis] = None
@@ -231,9 +231,9 @@ async def _append_text_entry(
     r: aioredis.Redis,
     sid: str,
     plaintext: str,
-    password: str,
+    key: bytes,
 ) -> dict:
-    token = encrypt(plaintext, sid, password)
+    token = encrypt(plaintext, key)
     item_id = uuid.uuid4().hex
     meta = _make_text_meta(item_id, len(plaintext.encode("utf-8")))
 
@@ -251,12 +251,14 @@ async def create_session(
     first_item: str,
     password: str,
     secure_mode: bool = False,
-) -> str:
+) -> tuple[str, bytes]:
+    """Returns (sid, key) — caller stores the key in the user's cookie."""
     r = await get_redis()
     cleanup_expired_upload_dirs()
 
     for _ in range(5):
         sid = generate_session_id(secure_mode=secure_mode)
+        key = derive_key(sid, password)
         meta = {
             "has_password": "1" if password else "0",
             "created_at": str(_now()),
@@ -270,10 +272,10 @@ async def create_session(
         if not results[0]:
             continue
 
-        await _append_text_entry(r, sid, first_item, password)
+        await _append_text_entry(r, sid, first_item, key)
         await r.set(_key_file_bytes(sid), 0, ex=SESSION_TTL_SECONDS)
         await _refresh_ttl(r, sid)
-        return sid
+        return sid, key
 
     raise RuntimeError("Could not generate a unique session ID after 5 attempts.")
 
@@ -345,12 +347,19 @@ async def delete_session(sid: str, wiped: bool = False) -> None:
     _cleanup_session_dir(sid)
 
 
-async def verify_password(sid: str, password: str) -> bool:
+async def verify_password(sid: str, password: str) -> Optional[bytes]:
+    """Verify the password and return the derived key on success, None on failure.
+
+    The key is returned so the caller can place it in the session cookie —
+    subsequent encrypt/decrypt calls take the key directly and skip the
+    per-request Argon2id cost.
+    """
     r = await get_redis()
 
     if await session_is_locked(sid):
-        return False
+        return None
 
+    key = derive_key(sid, password)
     has_pwd = await session_has_password(sid)
     if not has_pwd:
         if password != "":
@@ -358,28 +367,28 @@ async def verify_password(sid: str, password: str) -> bool:
             await r.expire(_key_failed(sid), SESSION_TTL_SECONDS)
             if failures >= SESSION_MAX_FAILED_ATTEMPTS:
                 await lock_session_forever(sid)
-            return False
-        return True
+            return None
+        return key
 
     first_token = await r.lindex(_key_items(sid), 0)
     if not first_token:
-        return False
+        return None
 
     try:
-        decrypt(first_token, sid, password)
+        decrypt(first_token, key)
         await r.delete(_key_failed(sid))
-        return True
+        return key
     except Exception:
         failures = await r.incr(_key_failed(sid))
         await r.expire(_key_failed(sid), SESSION_TTL_SECONDS)
         if failures >= SESSION_MAX_FAILED_ATTEMPTS:
             await lock_session_forever(sid)
-        return False
+        return None
 
 
-async def add_item(sid: str, plaintext: str, password: str) -> None:
+async def add_item(sid: str, plaintext: str, key: bytes) -> None:
     r = await get_redis()
-    await _append_text_entry(r, sid, plaintext, password)
+    await _append_text_entry(r, sid, plaintext, key)
     await _refresh_ttl(r, sid)
     await r.publish(_channel(sid), "new_item")
 
@@ -390,19 +399,19 @@ async def touch_session(sid: str) -> None:
         await _refresh_ttl(r, sid)
 
 
-async def get_items(sid: str, password: str) -> list[str]:
+async def get_items(sid: str, key: bytes) -> list[str]:
     r = await get_redis()
     tokens = await r.lrange(_key_items(sid), 0, -1)
     results = []
     for token in tokens:
         try:
-            results.append(decrypt(token, sid, password))
+            results.append(decrypt(token, key))
         except Exception:
             pass
     return results
 
 
-async def save_file(sid: str, filename: str, data: bytes, password: str) -> dict:
+async def save_file(sid: str, filename: str, data: bytes, key: bytes) -> dict:
     if not filename.strip():
         raise ValueError("Filename cannot be empty.")
 
@@ -420,7 +429,7 @@ async def save_file(sid: str, filename: str, data: bytes, password: str) -> dict
 
     cleanup_expired_upload_dirs()
 
-    encrypted = encrypt_bytes(data, sid, password)
+    encrypted = encrypt_bytes(data, key)
     if global_used_bytes() + len(encrypted) > TOTAL_FILE_MAX_BYTES:
         raise ValueError("Service quota exceeded.")
 
@@ -480,7 +489,7 @@ async def get_files(sid: str) -> list[dict]:
     return files
 
 
-async def get_session_contents(sid: str, password: str) -> dict:
+async def get_session_contents(sid: str, key: bytes) -> dict:
     r = await get_redis()
     entry_refs = await r.lrange(_key_entries(sid), 0, -1)
     item_ids = await r.lrange(_key_item_order(sid), 0, -1)
@@ -495,7 +504,7 @@ async def get_session_contents(sid: str, password: str) -> dict:
         if not meta_raw:
             continue
         try:
-            text = decrypt(token, sid, password)
+            text = decrypt(token, key)
         except Exception:
             continue
         meta = _load_meta(meta_raw)
@@ -532,7 +541,7 @@ async def get_session_contents(sid: str, password: str) -> dict:
     return {"entries": entries, "file_bytes": file_bytes}
 
 
-async def get_file_download(sid: str, file_id: str, password: str) -> tuple[str, bytes]:
+async def get_file_download(sid: str, file_id: str, key: bytes) -> tuple[str, bytes]:
     r = await get_redis()
     raw_meta = await r.hget(_key_files(sid), file_id)
     if not raw_meta:
@@ -544,7 +553,7 @@ async def get_file_download(sid: str, file_id: str, password: str) -> tuple[str,
         raise FileNotFoundError("File payload missing.")
 
     encrypted = file_path.read_bytes()
-    data = decrypt_bytes(encrypted, sid, password)
+    data = decrypt_bytes(encrypted, key)
     return meta["name"], data
 
 

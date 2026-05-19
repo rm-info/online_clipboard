@@ -51,62 +51,70 @@ class TestEncryptDecrypt:
     def sid(self, request):
         return generate_session_id(secure_mode=request.param)
 
-    def test_roundtrip(self, sid, password):
+    @pytest.fixture
+    def key(self, sid, password):
+        return derive_key(sid, password)
+
+    def test_roundtrip(self, key):
         plaintext = "Hello, clipboard!"
-        token = encrypt(plaintext, sid, password)
-        assert decrypt(token, sid, password) == plaintext
+        token = encrypt(plaintext, key)
+        assert decrypt(token, key) == plaintext
 
-    def test_unicode_roundtrip(self, sid, password):
+    def test_unicode_roundtrip(self, key):
         plaintext = "こんにちは 🌍 مرحبا"
-        assert decrypt(encrypt(plaintext, sid, password), sid, password) == plaintext
+        assert decrypt(encrypt(plaintext, key), key) == plaintext
 
-    def test_wrong_password_rejected(self, sid, password):
-        token = encrypt("secret", sid, password)
+    def test_wrong_key_rejected(self, sid, password, key):
+        wrong_key = derive_key(sid, password + "_wrong")
+        token = encrypt("secret", key)
         with pytest.raises((InvalidTag, Exception)):
-            decrypt(token, sid, password + "_wrong")
+            decrypt(token, wrong_key)
 
     def test_wrong_session_rejected(self, password):
         sid1 = generate_session_id()
         sid2 = generate_session_id()
-        token = encrypt("secret", sid1, password)
+        key1 = derive_key(sid1, password)
+        key2 = derive_key(sid2, password)
+        token = encrypt("secret", key1)
         with pytest.raises((InvalidTag, Exception)):
-            decrypt(token, sid2, password)
+            decrypt(token, key2)
 
-    def test_tampered_token_rejected(self, sid, password):
-        token = encrypt("secret", sid, password)
+    def test_tampered_token_rejected(self, key):
+        token = encrypt("secret", key)
         # Flip a byte in the ciphertext portion
         parts = token.split(":")
         tampered = parts[0] + ":" + parts[1][:-4] + "XXXX"
         with pytest.raises(Exception):
-            decrypt(tampered, sid, password)
+            decrypt(tampered, key)
 
-    def test_each_encryption_unique(self, sid, password):
+    def test_each_encryption_unique(self, key):
         # Same plaintext encrypted twice should produce different tokens (random nonce)
-        t1 = encrypt("hello", sid, password)
-        t2 = encrypt("hello", sid, password)
+        t1 = encrypt("hello", key)
+        t2 = encrypt("hello", key)
         assert t1 != t2
 
-    def test_empty_plaintext_raises(self, sid, password):
+    def test_empty_plaintext_raises(self, key):
         with pytest.raises(ValueError):
-            encrypt("", sid, password)
+            encrypt("", key)
 
-    def test_malformed_token_raises(self, sid, password):
+    def test_malformed_token_raises(self, key):
         with pytest.raises(ValueError):
-            decrypt("not_a_valid_token", sid, password)
+            decrypt("not_a_valid_token", key)
 
-    def test_binary_roundtrip(self, sid, password):
+    def test_binary_roundtrip(self, key):
         payload = b"\x00\x01binary-data\xff"
-        token = encrypt_bytes(payload, sid, password)
-        assert decrypt_bytes(token, sid, password) == payload
+        token = encrypt_bytes(payload, key)
+        assert decrypt_bytes(token, key) == payload
 
-    def test_binary_wrong_password_rejected(self, sid, password):
-        token = encrypt_bytes(b"secret-bytes", sid, password)
+    def test_binary_wrong_key_rejected(self, sid, password, key):
+        wrong_key = derive_key(sid, password + "_wrong")
+        token = encrypt_bytes(b"secret-bytes", key)
         with pytest.raises((InvalidTag, Exception)):
-            decrypt_bytes(token, sid, password + "_wrong")
+            decrypt_bytes(token, wrong_key)
 
-    def test_binary_empty_payload_raises(self, sid, password):
+    def test_binary_empty_payload_raises(self, key):
         with pytest.raises(ValueError):
-            encrypt_bytes(b"", sid, password)
+            encrypt_bytes(b"", key)
 
 
 # ---------------------------------------------------------------------------

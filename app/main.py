@@ -17,14 +17,17 @@ Routes:
 
 Cookie design:
   clip_auth_{sid}  — httponly, secure: proves authentication (value="1")
-  clip_pwd_{sid}   — httponly, secure: holds the password in the browser
-                     cookie store, out of reach of page JS. Server reads
-                     it on each request to derive the key; nothing about
-                     the password is persisted server-side. Empty string
-                     if no password.
+  clip_key_{sid}   — httponly, secure: holds the base64-encoded 32-byte
+                     AES key derived from password + server pepper via
+                     Argon2id. Lives in the browser cookie store, out
+                     of reach of page JS. Server uses it directly to
+                     decrypt content — no per-request Argon2id. The
+                     typed password is never stored anywhere; only the
+                     derived key briefly lives in this cookie.
 """
 
 import asyncio
+import base64
 import time
 from contextlib import asynccontextmanager
 from io import BytesIO
@@ -101,20 +104,26 @@ templates.env.globals["sse_enabled"] = SSE_ENABLED
 def _auth_cookie(sid: str) -> str:
     return f"clip_auth_{sid}"
 
-def _pwd_cookie(sid: str) -> str:
-    return f"clip_pwd_{sid}"
+def _key_cookie(sid: str) -> str:
+    return f"clip_key_{sid}"
 
 
 def _set_session_cookies(
     response: Response,
     sid: str,
-    password: str,
+    key: bytes,
     max_age: int = SESSION_TTL_SECONDS,
 ) -> None:
-    """Set both auth and password cookies — both httponly, secure."""
+    """Set both auth and key cookies — both httponly, secure.
+
+    The key is base64-urlsafe encoded so it travels safely in a cookie
+    value. The typed password is never written; this is the Argon2id
+    output, not the user input.
+    """
+    key_b64 = base64.urlsafe_b64encode(key).decode("ascii")
     common = dict(max_age=max_age, httponly=True, secure=True, samesite="strict")
     response.set_cookie(key=_auth_cookie(sid), value="1", **common)
-    response.set_cookie(key=_pwd_cookie(sid),  value=password, **common)
+    response.set_cookie(key=_key_cookie(sid),  value=key_b64, **common)
 
 
 async def _refresh_session_cookies(response: Response, request: Request, sid: str) -> None:
@@ -131,13 +140,15 @@ async def _refresh_session_cookies(response: Response, request: Request, sid: st
     remaining = expires_at - int(time.time())
     if remaining <= 0:
         return
-    password = _get_password(request, sid)
-    _set_session_cookies(response, sid, password, max_age=remaining)
+    key = _get_key(request, sid)
+    if not key:
+        return
+    _set_session_cookies(response, sid, key, max_age=remaining)
 
 
 def _clear_session_cookies(response: Response, sid: str) -> None:
     response.delete_cookie(key=_auth_cookie(sid))
-    response.delete_cookie(key=_pwd_cookie(sid))
+    response.delete_cookie(key=_key_cookie(sid))
 
 
 def _set_language_cookie(response: Response, lang: str) -> None:
@@ -152,13 +163,20 @@ def get_client_ip(request: Request) -> str:
 
 
 async def _is_authenticated(request: Request, sid: str) -> bool:
-    cookie_val = request.cookies.get(_auth_cookie(sid))
-    return cookie_val == "1" and await sess.session_exists(sid)
+    auth_ok = request.cookies.get(_auth_cookie(sid)) == "1"
+    has_key = bool(request.cookies.get(_key_cookie(sid)))
+    return auth_ok and has_key and await sess.session_exists(sid)
 
 
-def _get_password(request: Request, sid: str) -> str:
-    """Read the stored password from the httponly cookie."""
-    return request.cookies.get(_pwd_cookie(sid), "")
+def _get_key(request: Request, sid: str) -> bytes:
+    """Decode the AES key from the httponly clip_key cookie. Empty on miss."""
+    val = request.cookies.get(_key_cookie(sid), "")
+    if not val:
+        return b""
+    try:
+        return base64.urlsafe_b64decode(val)
+    except Exception:
+        return b""
 
 
 def _get_language(request: Request) -> str:
@@ -312,14 +330,14 @@ async def create_session(
     if len(password) > 50:
         raise HTTPException(status_code=422, detail="Password too long (max 50 chars).")
 
-    sid = await sess.create_session(
+    sid, key = await sess.create_session(
         first_item=text,
         password=password,
         secure_mode=secure_mode,
     )
 
     response = RedirectResponse(url=f"/{sid}", status_code=status.HTTP_303_SEE_OTHER)
-    _set_session_cookies(response, sid, password)
+    _set_session_cookies(response, sid, key)
     _set_language_cookie(response, _get_language(request))
     return response
 
@@ -411,9 +429,9 @@ async def authenticate(
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session not found.")
 
-    ok = await sess.verify_password(sid, password)
+    key = await sess.verify_password(sid, password)
 
-    if not ok:
+    if key is None:
         if await sess.session_is_locked(sid):
             return JSONResponse(
                 {"error": "session_locked"},
@@ -432,7 +450,7 @@ async def authenticate(
     # the TTL; otherwise anyone with the password could keep a session
     # alive indefinitely by re-authenticating every ~2 hours.
     response = RedirectResponse(url=f"/{sid}", status_code=status.HTTP_303_SEE_OTHER)
-    _set_session_cookies(response, sid, password)
+    _set_session_cookies(response, sid, key)
     _set_language_cookie(response, _get_language(request))
     return response
 
@@ -450,8 +468,8 @@ async def get_items(request: Request, sid: str):
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session expired.")
 
-    password = _get_password(request, sid)
-    items = await sess.get_items(sid, password)
+    key = _get_key(request, sid)
+    items = await sess.get_items(sid, key)
     response = JSONResponse({"items": items})
     await _refresh_session_cookies(response, request, sid)
     return response
@@ -466,8 +484,8 @@ async def get_contents(request: Request, sid: str):
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session expired.")
 
-    password = _get_password(request, sid)
-    contents = await sess.get_session_contents(sid, password)
+    key = _get_key(request, sid)
+    contents = await sess.get_session_contents(sid, key)
     response = JSONResponse(contents)
     await _refresh_session_cookies(response, request, sid)
     return response
@@ -496,8 +514,8 @@ async def add_item(
     if len(text) > 500_000:
         raise HTTPException(status_code=413, detail="Text too large.")
 
-    password = _get_password(request, sid)
-    await sess.add_item(sid, text, password)
+    key = _get_key(request, sid)
+    await sess.add_item(sid, text, key)
     response = JSONResponse({"ok": True})
     await _refresh_session_cookies(response, request, sid)
     return response
@@ -530,10 +548,10 @@ async def upload_file(
         )
 
     payload = await _read_upload_bytes(file)
-    password = _get_password(request, sid)
+    key = _get_key(request, sid)
 
     try:
-        saved = await sess.save_file(sid, file.filename, payload, password)
+        saved = await sess.save_file(sid, file.filename, payload, key)
     except ValueError as exc:
         message = str(exc)
         if message == "File too large.":
@@ -573,9 +591,9 @@ async def download_file(request: Request, sid: str, file_id: str):
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session expired.")
 
-    password = _get_password(request, sid)
+    key = _get_key(request, sid)
     try:
-        filename, data = await sess.get_file_download(sid, file_id, password)
+        filename, data = await sess.get_file_download(sid, file_id, key)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="File not found.") from exc
     except Exception as exc:

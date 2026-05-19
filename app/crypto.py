@@ -100,9 +100,9 @@ def derive_key(session_id: str, password: str) -> bytes:
 # Encryption / Decryption
 # ---------------------------------------------------------------------------
 
-def encrypt(plaintext: str, session_id: str, password: str) -> str:
+def encrypt(plaintext: str, key: bytes) -> str:
     """
-    Encrypt a plaintext string and return a base64-encoded token.
+    Encrypt a plaintext string with a pre-derived 32-byte AES key.
 
     Token format (all base64url, colon-separated):
         <nonce_b64>:<ciphertext_with_tag_b64>
@@ -110,13 +110,15 @@ def encrypt(plaintext: str, session_id: str, password: str) -> str:
     The GCM authentication tag (16 bytes) is appended to the ciphertext
     automatically by the cryptography library.
 
+    Caller is responsible for obtaining `key` via derive_key() once per
+    session — running Argon2id per encrypt call was needlessly expensive.
+
     Raises:
         ValueError: if plaintext is empty
     """
     if not plaintext:
         raise ValueError("Cannot encrypt empty plaintext.")
 
-    key    = derive_key(session_id, password)
     nonce  = secrets.token_bytes(AES_NONCE_SIZE)
     aesgcm = AESGCM(key)
 
@@ -128,9 +130,9 @@ def encrypt(plaintext: str, session_id: str, password: str) -> str:
     return f"{nonce_b64}:{ciphertext_b64}"
 
 
-def encrypt_bytes(plaintext: bytes, session_id: str, password: str) -> bytes:
+def encrypt_bytes(plaintext: bytes, key: bytes) -> bytes:
     """
-    Encrypt arbitrary bytes and return a binary token.
+    Encrypt arbitrary bytes with a pre-derived 32-byte AES key.
 
     Binary token format:
         <12-byte nonce><ciphertext_with_tag>
@@ -138,23 +140,22 @@ def encrypt_bytes(plaintext: bytes, session_id: str, password: str) -> bytes:
     if not plaintext:
         raise ValueError("Cannot encrypt empty plaintext.")
 
-    key = derive_key(session_id, password)
     nonce = secrets.token_bytes(AES_NONCE_SIZE)
     aesgcm = AESGCM(key)
     ciphertext_with_tag = aesgcm.encrypt(nonce, plaintext, None)
     return nonce + ciphertext_with_tag
 
 
-def decrypt(token: str, session_id: str, password: str) -> str:
+def decrypt(token: str, key: bytes) -> str:
     """
-    Decrypt a token produced by encrypt().
+    Decrypt a token produced by encrypt() using a pre-derived 32-byte key.
 
     Returns the original plaintext string.
 
     Raises:
         ValueError:  if the token format is invalid
         cryptography.exceptions.InvalidTag: if decryption fails
-            (wrong password, corrupted data, or tampering detected)
+            (wrong key, corrupted data, or tampering detected)
     """
     try:
         nonce_b64, ciphertext_b64 = token.split(":", 1)
@@ -163,7 +164,6 @@ def decrypt(token: str, session_id: str, password: str) -> str:
     except Exception:
         raise ValueError("Invalid token format.")
 
-    key    = derive_key(session_id, password)
     aesgcm = AESGCM(key)
 
     # This raises InvalidTag if authentication fails — DO NOT catch this silently
@@ -171,16 +171,15 @@ def decrypt(token: str, session_id: str, password: str) -> str:
     return plaintext_bytes.decode("utf-8")
 
 
-def decrypt_bytes(token: bytes, session_id: str, password: str) -> bytes:
+def decrypt_bytes(token: bytes, key: bytes) -> bytes:
     """
-    Decrypt a binary token produced by encrypt_bytes().
+    Decrypt a binary token produced by encrypt_bytes() with a pre-derived key.
     """
     if len(token) <= AES_NONCE_SIZE:
         raise ValueError("Invalid binary token format.")
 
     nonce = token[:AES_NONCE_SIZE]
     ciphertext_with_tag = token[AES_NONCE_SIZE:]
-    key = derive_key(session_id, password)
     aesgcm = AESGCM(key)
     return aesgcm.decrypt(nonce, ciphertext_with_tag, None)
 
@@ -228,19 +227,21 @@ if __name__ == "__main__":
 
         for pwd in ("", "hunter2", "p@$$w0rd!🔐"):
             plaintext = f"Hello, clipboard! Password={pwd!r}"
-            token     = encrypt(plaintext, sid, pwd)
-            recovered = decrypt(token, sid, pwd)
+            key       = derive_key(sid, pwd)
+            token     = encrypt(plaintext, key)
+            recovered = decrypt(token, key)
 
             assert recovered == plaintext, "DECRYPTION MISMATCH"
             print(f"  ✓ password={pwd!r:20s}  token_len={len(token)}")
 
-            # Confirm wrong password raises an error
+            # Confirm wrong key (derived from wrong password) raises an error
+            wrong_key = derive_key(sid, pwd + "WRONG")
             try:
-                decrypt(token, sid, pwd + "WRONG")
-                print("  ✗ Wrong password should have raised — SECURITY FAILURE")
+                decrypt(token, wrong_key)
+                print("  ✗ Wrong key should have raised — SECURITY FAILURE")
                 sys.exit(1)
             except Exception:
-                print(f"  ✓ Wrong password correctly rejected")
+                print(f"  ✓ Wrong key correctly rejected")
 
         print()
 
