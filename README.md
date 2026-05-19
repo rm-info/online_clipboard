@@ -155,7 +155,7 @@ clipboard.your.domain {
 | `CREATE_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the create quota (1 hour) |
 | `UPLOAD_RATE_LIMIT_MAX` | `60` | Per-IP uploads allowed in `UPLOAD_RATE_LIMIT_WINDOW_SECONDS`. Set ≤ 0 to disable. |
 | `UPLOAD_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the upload quota (1 hour) |
-| `APP_VERSION` | `1.3.0` | Version displayed in the footer |
+| `APP_VERSION` | `1.3.1` | Version displayed in the footer |
 | `DEBUG` | `false` | Enable FastAPI debug mode and `/docs` endpoint |
 
 ---
@@ -169,7 +169,37 @@ A three-layer approach ensures no event is ever missed:
 - **Page Visibility API** — immediate check when a tab regains focus after being hidden
 - **Polling every 10s** — fallback covering tabs that stay visible on screen while activity happens elsewhere
 
-The SSE heartbeat (every 25s) does **not** refresh the session TTL — only real actions do (adding an item, authenticating, uploading a file).
+The SSE heartbeat (every 25s) does **not** refresh the session TTL. See *Session lifetime* below for the exact rules.
+
+---
+
+## Session lifetime
+
+A session lives for `SESSION_TTL_SECONDS` (2 h by default) from the last
+event that the server considers a **real action**. The TTL is a sliding
+window applied uniformly to all keys for a given session — text items
+and files in the same session expire together.
+
+**Refreshes the TTL:**
+- Creating the session
+- Adding a text item (`POST /{sid}/add`)
+- Uploading a file (`POST /{sid}/upload`)
+
+**Does NOT refresh the TTL:**
+- Authenticating (`POST /{sid}/auth`) — proving you know the password
+  is a read operation, not a write
+- Loading or reloading the session page (`GET /{sid}`)
+- Listing items, downloading files, SSE stream + heartbeats, polling
+  fallback
+
+This means: the countdown can only be extended by adding new content.
+Reading and re-authentication are intentionally not enough to keep a
+stale session alive indefinitely.
+
+The "wipes in" countdown shown in the UI reflects the **real** Redis
+expiry (passed to the page on render), not a hard-coded full TTL from
+the page-load time — so a reload of a session that has 10 min left
+correctly shows ~10 min, not "2 h".
 
 ---
 
@@ -206,7 +236,7 @@ healthcheck.io, k8s probes, etc.):
   "disk_cap_bytes": 10737418240,
   "disk_ratio": 0.0,
   "warn_ratio": 0.8,
-  "version": "1.2.0"
+  "version": "1.3.1"
 }
 ```
 
