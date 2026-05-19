@@ -7,6 +7,6 @@
 <div class="panel" style="max-width:760px;">
   <div class="alert alert-warn">{{ tr.session_not_found_message }} <code>{{ sid }}</code>.</div>
   <p class="muted" style="margin:16px 0 22px;">{{ tr.session_not_found_explainer }}</p>
-  <a href="/" class="btn btn-ghost">← {{ tr.create_another_session }}</a>
+  <a href="/" class="btn btn-ghost">{{ icon_arrow_left() }}<span class="btn-label">{{ tr.create_another_session }}</span></a>
 </div>
 {% endblock %}

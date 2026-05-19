@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ tr.session_active_title }} — Clipboard{% endblock %}
 {% block header_title %}{{ tr.session_active_title }}{% endblock %}
-{% block header_sub %}<div class="header-sub">{{ tr.session_active_subtitle }} · {{ tr.wipes_in }} <span id="ttlDisplay">2h 00m</span>{% if sse_enabled %} · <span id="liveIndicator" style="color:var(--fg-muted)">⬤ {{ tr.connecting }}</span>{% endif %}</div>{% endblock %}
+{% block header_sub %}<div class="header-sub">{{ tr.session_active_subtitle }} · {{ tr.wipes_in }} <span id="ttlDisplay">2h 00m</span>{% if sse_enabled %} · <span id="liveIndicator" style="color:var(--fg-muted)"><span class="live-dot" aria-hidden="true"></span><span class="live-text">{{ tr.connecting }}</span></span>{% endif %}</div>{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -254,7 +254,7 @@
               <path d="M14 14h3v3h-3zM19 14h2M14 19h3v2"/>
             </svg>
           </button>
-          <button class="icon-btn" id="copyUrlBtn" type="button" onclick="copyUrl()" title="{{ tr['copy'] }}">⧉</button>
+          <button class="icon-btn" id="copyUrlBtn" type="button" onclick="copyUrl()" title="{{ tr['copy'] }}">{{ icon_copy() }}{{ icon_check() }}</button>
         </div>
       </div>
 
@@ -281,7 +281,7 @@
 
     <section class="panel" id="newSessionPanel" style="display:none;">
       <div class="flex-row flex-end">
-        <a href="/" class="btn btn-primary">↗ {{ tr.new_session }}</a>
+        <a href="/" class="btn btn-primary">{{ icon_arrow_right() }}<span class="btn-label">{{ tr.new_session }}</span></a>
       </div>
     </section>
   </main>
@@ -319,7 +319,7 @@
           </div>
           <span class="muted">{{ upload_limits_text }}</span>
           <span class="muted" id="uploadStatus"></span>
-          <button class="btn btn-primary" id="uploadBtn" onclick="uploadFiles()">↑ {{ tr.upload }}</button>
+          <button class="btn btn-primary" id="uploadBtn" onclick="uploadFiles()">{{ icon_upload() }}<span class="btn-label">{{ tr.upload }}</span></button>
         </div>
       </section>
 
@@ -341,7 +341,7 @@
       <section class="panel" id="actionsPanel">
         <div class="panel-label">{{ tr.controls }}</div>
         <div class="sidebar-actions">
-          <button class="btn btn-ghost" onclick="window.open('/', '_blank')">↗ {{ tr.new_session }}</button>
+          <button class="btn btn-ghost" onclick="window.open('/', '_blank')">{{ icon_arrow_right() }}<span class="btn-label">{{ tr.new_session }}</span></button>
           <button class="btn btn-danger" onclick="confirmWipe()">✕ {{ tr.wipe_session }}</button>
         </div>
       </section>
@@ -379,9 +379,13 @@
   const SESSION_FILE_MAX = {{ session_file_max_bytes }};
   const I18N = {{ js_i18n | tojson }};
   // Lucide icons (MIT, https://lucide.dev) — self-hosted, inlined for styling
-  // via currentColor. .entry-icon controls render size.
+  // via currentColor. .entry-icon (14px) sizes the entry-badge icons;
+  // .icon (16px) sizes the action button icons.
   const ICON_TEXT = '<svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>';
   const ICON_FILE = '<svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>';
+  const ICON_COPY = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+  const ICON_CHECK = '<svg class="icon icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+  const ICON_DOWNLOAD = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>';
 
   const sessionUrl = window.location.href.split('?')[0];
   // expires_at is the absolute UNIX seconds at which Redis will drop the
@@ -459,8 +463,8 @@
   function copyUrl() {
     navigator.clipboard.writeText(sessionUrl);
     const btn = document.getElementById('copyUrlBtn');
-    btn.textContent = '✓';
-    setTimeout(() => { btn.textContent = '⧉'; }, 1500);
+    btn.classList.add('copied');
+    setTimeout(() => btn.classList.remove('copied'), 1500);
   }
 
   (() => {
@@ -511,8 +515,8 @@
 
   function copyItem(btn, id) {
     navigator.clipboard.writeText(document.getElementById(`entry-text-${id}`).textContent);
-    btn.textContent = '✓';
-    setTimeout(() => { btn.textContent = '⧉'; }, 1500);
+    btn.classList.add('copied');
+    setTimeout(() => btn.classList.remove('copied'), 1500);
   }
 
   function renderEntries(entries, fileBytes) {
@@ -552,7 +556,7 @@
                 <span>${formatSize(entry.size)}</span>
               </div>
               <div class="entry-actions">
-                <button class="icon-btn" onclick="copyItem(this, '${entry.id}')" title="${I18N.copy}">⧉</button>
+                <button class="icon-btn" onclick="copyItem(this, '${entry.id}')" title="${I18N.copy}">${ICON_COPY}${ICON_CHECK}</button>
               </div>
             </div>
             <div class="item-text" id="entry-text-${entry.id}">${escapeHtml(entry.text)}</div>
@@ -568,7 +572,7 @@
               <div class="entry-title" style="margin-top:12px;">${escapeHtml(entry.name)}</div>
             </div>
             <div class="entry-actions">
-              <a class="icon-btn" href="/${sid}/files/${entry.id}" title="${I18N.download}">↓</a>
+              <a class="icon-btn" href="/${sid}/files/${entry.id}" title="${I18N.download}">${ICON_DOWNLOAD}</a>
             </div>
           </div>
           <div class="entry-meta">
@@ -764,7 +768,7 @@
     sseSource.onopen = () => {
       const el = document.getElementById('liveIndicator');
       if (el) {
-        el.textContent = `⬤ ${I18N.live}`;
+        el.querySelector('.live-text').textContent = I18N.live;
         el.style.color = 'var(--accent)';
       }
     };
@@ -779,7 +783,7 @@
     sseSource.onerror = () => {
       const el = document.getElementById('liveIndicator');
       if (el) {
-        el.textContent = `⬤ ${I18N.reconnecting}`;
+        el.querySelector('.live-text').textContent = I18N.reconnecting;
         el.style.color = 'var(--warn)';
       }
     };

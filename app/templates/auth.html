@@ -15,8 +15,8 @@
   </div>
 
   <div class="flex-row flex-end">
-    <a href="/" class="btn btn-ghost">← {{ tr.new_session }}</a>
-    <button class="btn btn-primary" id="authBtn" onclick="doAuth()">↗ {{ tr.submit }}</button>
+    <a href="/" class="btn btn-ghost">{{ icon_arrow_left() }}<span class="btn-label">{{ tr.new_session }}</span></a>
+    <button class="btn btn-primary" id="authBtn" onclick="doAuth()">{{ icon_arrow_right() }}<span class="btn-label">{{ tr.submit }}</span></button>
   </div>
 </div>
 
@@ -30,7 +30,7 @@
     const errorBox = document.getElementById('errorBox');
 
     btn.disabled = true;
-    btn.textContent = tr.checking;
+    btn.querySelector('.btn-label').textContent = tr.checking;
     errorBox.style.display = 'none';
 
     const body = new URLSearchParams({ password: pwd });
@@ -79,7 +79,7 @@
     }
 
     btn.disabled = false;
-    btn.textContent = `↗ ${tr.submit}`;
+    btn.querySelector('.btn-label').textContent = tr.submit;
   }
 
   document.getElementById('password')?.addEventListener('keydown', (e) => {

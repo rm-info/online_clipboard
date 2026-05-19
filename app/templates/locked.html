@@ -7,6 +7,6 @@
 <div class="panel" style="max-width:760px;">
   <div class="alert alert-danger">{{ tr.session_locked_message }} <code>{{ sid }}</code>.</div>
   <p class="muted" style="margin:16px 0 22px;">{{ tr.session_locked_explainer }}</p>
-  <a href="/" class="btn btn-ghost">← {{ tr.start_new_session }}</a>
+  <a href="/" class="btn btn-ghost">{{ icon_arrow_left() }}<span class="btn-label">{{ tr.start_new_session }}</span></a>
 </div>
 {% endblock %}

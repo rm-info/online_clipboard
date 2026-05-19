@@ -84,7 +84,7 @@
     </div>
 
     <div class="flex-row flex-end">
-      <button type="submit" class="btn btn-primary" id="submitBtn">↗ {{ tr.create_session }}</button>
+      <button type="submit" class="btn btn-primary" id="submitBtn">{{ icon_arrow_right() }}<span class="btn-label">{{ tr.create_session }}</span></button>
     </div>
   </form>
 
@@ -147,7 +147,7 @@
   document.getElementById('createForm').addEventListener('submit', () => {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.textContent = tr.creating;
+    btn.querySelector('.btn-label').textContent = tr.creating;
   });
 
   (() => {
