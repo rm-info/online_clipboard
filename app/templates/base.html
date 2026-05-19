@@ -21,6 +21,9 @@
 {%- macro icon_trash() -%}
 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
 {%- endmacro -%}
+{%- macro icon_x() -%}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+{%- endmacro -%}
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
@@ -209,7 +212,7 @@
       padding: 16px;
       box-shadow: var(--shadow);
     }
-    .panel + .panel { margin-top: 10px; }
+    .panel + .panel { margin-top: 12px; }
 
     .panel-label {
       display: flex;
@@ -355,10 +358,18 @@
       border-color: var(--border);
     }
     .btn-ghost:hover,
-    .copy-btn:hover,
-    .icon-btn:hover {
+    .copy-btn:hover {
       color: var(--fg);
       border-color: var(--border-hi);
+    }
+    /* Icon-only buttons share the same accent-green hover everywhere so the
+       per-item copy/download/QR/copyURL act as a coherent set. Variants
+       (.icon-btn-danger / .icon-btn-info) override below as needed. */
+    .icon-btn:hover,
+    .icon-btn:focus-visible {
+      color: var(--accent);
+      border-color: var(--accent);
+      outline: none;
     }
     /* Variant: per-item trash button. Neutral by default so the timeline isn't
        littered with red; turns danger-red on hover/focus to signal intent. */
@@ -588,8 +599,7 @@
       align-items: flex-start;
       justify-content: center;
       padding: 24px 14px;
-      background: rgba(5, 8, 11, 0.72);
-      backdrop-filter: blur(4px);
+      background: rgba(5, 8, 11, 0.82);
       overflow-y: auto;
     }
     .modal-scrim.open { display: flex; }
@@ -619,29 +629,32 @@
       letter-spacing: .14em;
       text-transform: uppercase;
     }
+    /* Modal close button — danger-red X icon, true 38x38 circle.
+       The red tint is the standard "destructive/dismiss" affordance and
+       matches the visual language of .icon-btn-danger on per-item delete. */
     .modal-close {
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      width: 38px;
       min-width: 38px;
       height: 38px;
-      padding: 0 10px;
-      border: 1px solid var(--border);
+      padding: 0;
+      border: 1px solid rgba(255, 92, 114, 0.35);
       border-radius: 999px;
-      background: transparent;
-      color: var(--fg-dim);
-      font-family: var(--mono);
-      font-size: .75rem;
-      letter-spacing: .12em;
-      text-transform: uppercase;
+      background: rgba(255, 92, 114, 0.06);
+      color: var(--danger);
       cursor: pointer;
+      transition: color .15s, border-color .15s, background .15s;
     }
     .modal-close:hover,
     .modal-close:focus-visible {
-      color: var(--accent);
-      border-color: var(--accent);
+      color: #ff7a8d;
+      border-color: var(--danger);
       outline: none;
+      background: rgba(255, 92, 114, 0.14);
     }
+    .modal-close svg { display: block; width: 18px; height: 18px; }
 
     /* Site-info modal is denser than the QR overlay — widen it and style the
        structured content (sections, cookie list, inline code names). DOM hooks
@@ -731,7 +744,7 @@
     <div class="modal-card modal-card-wide">
       <div class="modal-head">
         <p class="modal-title" id="siteInfoTitle">{{ tr.privacy_title }}</p>
-        <button class="modal-close" type="button" id="siteInfoClose" onclick="closeSiteInfoModal()">{{ tr.close }}</button>
+        <button class="modal-close" type="button" id="siteInfoClose" onclick="closeSiteInfoModal()" title="{{ tr.close }}" aria-label="{{ tr.close }}">{{ icon_x() }}</button>
       </div>
       <div class="info-body">
         <p>{{ tr.privacy_intro }}</p>

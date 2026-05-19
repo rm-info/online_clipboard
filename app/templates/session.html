@@ -25,9 +25,9 @@
   .timeline-panel,
   .sidebar-stack {
     display: grid;
-    gap: 10px;
+    gap: 12px;
   }
-  /* .panel + .panel adds margin-top: 10px globally for block-stacked panels.
+  /* .panel + .panel adds margin-top globally for block-stacked panels.
      Inside a grid container that already provides `gap`, that margin doubles
      the spacing. Zero it here so adjacent panels in the sidebar respect just
      the grid gap and match the rest of the app's panel spacing. */
@@ -75,12 +75,12 @@
   }
   .hero-stack {
     display: grid;
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 12px;
   }
   .feed-stack {
     display: grid;
-    gap: 10px;
+    gap: 12px;
   }
   .entry-card {
     scroll-margin-top: 22px;
@@ -385,7 +385,7 @@
   <div class="modal-card">
     <div class="modal-head">
       <h2 class="modal-title" id="qrModalTitle">{{ tr.qr_modal_title }}</h2>
-      <button type="button" class="modal-close" id="qrModalClose">{{ tr.close }}</button>
+      <button type="button" class="modal-close" id="qrModalClose" title="{{ tr.close }}" aria-label="{{ tr.close }}">{{ icon_x() }}</button>
     </div>
     <div class="qr-canvas-wrap" id="qrTarget"></div>
     <div class="qr-url" id="qrUrl"></div>
@@ -804,6 +804,21 @@
     if (res.status === 410) { handleExpired('locked'); return; }
   }
 
+  // Esc + click-outside affordances for the wipe and delete confirm modals.
+  // Both use inline display:none/flex (not .modal-scrim) so they don't get the
+  // generic privacy-modal handler from base.html — wire them explicitly here.
+  (() => {
+    const wipe = document.getElementById('wipeOverlay');
+    const del = document.getElementById('deleteOverlay');
+    if (wipe) wipe.addEventListener('click', (e) => { if (e.target === wipe) closeWipe(); });
+    if (del) del.addEventListener('click', (e) => { if (e.target === del) closeDelete(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (wipe && wipe.style.display === 'flex') { closeWipe(); return; }
+      if (del && del.style.display === 'flex') { closeDelete(); }
+    });
+  })();
+
   {% if sse_enabled %}
   let sseSource = null;
 
@@ -834,6 +849,13 @@
       }
     };
   }
+
+  // Explicitly close the stream when leaving the page. Firefox logs
+  // "Connection interrupted while loading" otherwise — harmless but noisy
+  // in the console; this turns it into a clean close instead.
+  window.addEventListener('beforeunload', () => {
+    if (sseSource) { sseSource.close(); sseSource = null; }
+  });
   {% endif %}
 
   document.addEventListener('visibilitychange', async () => {
