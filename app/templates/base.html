@@ -643,12 +643,14 @@
       outline: none;
     }
 
-    /* Privacy modal is denser than the QR overlay — widen it and style the
-       structured content (sections, cookie list, inline code names). */
+    /* Site-info modal is denser than the QR overlay — widen it and style the
+       structured content (sections, cookie list, inline code names). DOM hooks
+       use "siteInfo*" rather than the more obvious "privacy*" because adblock
+       annoyance lists hide elements matching id*="privacy". */
     .modal-card.modal-card-wide { max-width: 640px; }
-    .privacy-body { color: var(--fg-dim); font-size: .92rem; line-height: 1.6; }
-    .privacy-body > p:first-child { margin-top: 0; }
-    .privacy-body h4 {
+    .info-body { color: var(--fg-dim); font-size: .92rem; line-height: 1.6; }
+    .info-body > p:first-child { margin-top: 0; }
+    .info-body h4 {
       margin: 16px 0 6px;
       color: var(--fg);
       font-family: var(--mono);
@@ -657,9 +659,9 @@
       letter-spacing: .14em;
       text-transform: uppercase;
     }
-    .privacy-body ul { margin: 6px 0 0; padding-left: 0; list-style: none; }
-    .privacy-body li + li { margin-top: 8px; }
-    .privacy-body code {
+    .info-body ul { margin: 6px 0 0; padding-left: 0; list-style: none; }
+    .info-body li + li { margin-top: 8px; }
+    .info-body code {
       font-family: var(--mono);
       font-size: .82rem;
       padding: 1px 6px;
@@ -710,8 +712,8 @@
           <a class="lang-link{% if code == lang %} active{% endif %}" href="?lang={{ code }}">{{ tr["lang_" + code] }}</a>
           {% endfor %}
         </nav>
-        <button class="icon-btn-info" type="button" id="privacyBtn"
-                onclick="openPrivacyModal()"
+        <button class="icon-btn-info" type="button" id="siteInfoBtn"
+                onclick="openSiteInfoModal()"
                 title="{{ tr.privacy_button_label }}"
                 aria-label="{{ tr.privacy_button_label }}">
           {{ icon_cookie() }}
@@ -725,13 +727,13 @@
     <footer>v{{ app_version }}</footer>
   </div>
 
-  <div class="modal-scrim" id="privacyOverlay" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+  <div class="modal-scrim" id="siteInfoOverlay" role="dialog" aria-modal="true" aria-labelledby="siteInfoTitle">
     <div class="modal-card modal-card-wide">
       <div class="modal-head">
-        <p class="modal-title" id="privacyTitle">{{ tr.privacy_title }}</p>
-        <button class="modal-close" type="button" id="privacyClose" onclick="closePrivacyModal()">{{ tr.close }}</button>
+        <p class="modal-title" id="siteInfoTitle">{{ tr.privacy_title }}</p>
+        <button class="modal-close" type="button" id="siteInfoClose" onclick="closeSiteInfoModal()">{{ tr.close }}</button>
       </div>
-      <div class="privacy-body">
+      <div class="info-body">
         <p>{{ tr.privacy_intro }}</p>
 
         <h4>{{ tr.privacy_cookies_heading }}</h4>
@@ -762,26 +764,24 @@
   </div>
 
   <script>
-    // Exposed on window so inline onclick handlers can find them. Diagnostic
-    // logs stay in place until we confirm the click flow works for every
-    // user agent — an earlier user could click without the modal opening
-    // and no error reaching the console, so we want explicit signal.
-    window.openPrivacyModal = function openPrivacyModal() {
-      console.log('[privacy] openPrivacyModal called');
-      const o = document.getElementById('privacyOverlay');
-      if (!o) { console.error('[privacy] #privacyOverlay not found in DOM'); return; }
-      o.classList.add('open');
-      console.log('[privacy] classList now:', o.className, '| computed display:', getComputedStyle(o).display);
+    // Exposed on window so inline onclick handlers find them reliably.
+    // The "siteInfo*" DOM hook naming is deliberate: an earlier "privacy*"
+    // naming was matched and hidden by browser adblock annoyance lists
+    // (filters like ##[id*="privacy"] force display: none !important), so
+    // the modal silently failed to render even though the click handler ran.
+    window.openSiteInfoModal = function openSiteInfoModal() {
+      const o = document.getElementById('siteInfoOverlay');
+      if (o) o.classList.add('open');
     };
-    window.closePrivacyModal = function closePrivacyModal() {
-      const o = document.getElementById('privacyOverlay');
+    window.closeSiteInfoModal = function closeSiteInfoModal() {
+      const o = document.getElementById('siteInfoOverlay');
       if (o) o.classList.remove('open');
     };
     (() => {
-      const overlay = document.getElementById('privacyOverlay');
+      const overlay = document.getElementById('siteInfoOverlay');
       if (!overlay) return;
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closePrivacyModal(); });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) window.closePrivacyModal(); });
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closeSiteInfoModal(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) window.closeSiteInfoModal(); });
     })();
   </script>
 </body>
