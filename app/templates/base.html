@@ -405,11 +405,14 @@
       border-color: rgba(255, 92, 114, 0.5);
     }
     .icon-btn {
-      width: 44px;
-      min-width: 44px;
+      width: 38px;
+      min-width: 38px;
+      height: 38px;
+      min-height: 38px;
       padding: 0;
       font-size: 1rem;
     }
+    .icon-btn svg { display: block; width: 20px; height: 20px; }
 
     /* Inline Lucide-style icons inside .btn / .icon-btn / .lang-link */
     .icon {
@@ -688,7 +691,7 @@
       }
       .btn,
       .copy-btn { width: 100%; }
-      .icon-btn { width: 44px; }
+      .icon-btn { width: 38px; }
     }
   </style>
   {% block extra_head %}{% endblock %}
@@ -708,6 +711,7 @@
           {% endfor %}
         </nav>
         <button class="icon-btn-info" type="button" id="privacyBtn"
+                onclick="openPrivacyModal()"
                 title="{{ tr.privacy_button_label }}"
                 aria-label="{{ tr.privacy_button_label }}">
           {{ icon_cookie() }}
@@ -725,7 +729,7 @@
     <div class="modal-card modal-card-wide">
       <div class="modal-head">
         <p class="modal-title" id="privacyTitle">{{ tr.privacy_title }}</p>
-        <button class="modal-close" type="button" id="privacyClose">{{ tr.close }}</button>
+        <button class="modal-close" type="button" id="privacyClose" onclick="closePrivacyModal()">{{ tr.close }}</button>
       </div>
       <div class="privacy-body">
         <p>{{ tr.privacy_intro }}</p>
@@ -758,17 +762,22 @@
   </div>
 
   <script>
+    // Open/close are global so the modal works even if a script earlier in
+    // the page throws and prevents a normal IIFE from registering listeners
+    // (the previous addEventListener-based wiring stopped firing after a
+    // late template addition shadowed something — onclick is the durable
+    // surface). The IIFE below only wires the soft-close affordances.
+    function openPrivacyModal() {
+      document.getElementById('privacyOverlay').classList.add('open');
+    }
+    function closePrivacyModal() {
+      document.getElementById('privacyOverlay').classList.remove('open');
+    }
     (() => {
       const overlay = document.getElementById('privacyOverlay');
-      const btn = document.getElementById('privacyBtn');
-      const closeBtn = document.getElementById('privacyClose');
-      if (!overlay || !btn) return;
-      const open = () => overlay.classList.add('open');
-      const close = () => overlay.classList.remove('open');
-      btn.addEventListener('click', open);
-      closeBtn.addEventListener('click', close);
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
+      if (!overlay) return;
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) closePrivacyModal(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) closePrivacyModal(); });
     })();
   </script>
 </body>

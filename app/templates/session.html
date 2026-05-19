@@ -561,8 +561,8 @@
                 <span>${formatSize(entry.size)}</span>
               </div>
               <div class="entry-actions">
-                <button class="icon-btn" onclick="copyItem(this, '${entry.id}')" title="${I18N.copy}">${ICON_COPY}${ICON_CHECK}</button>
                 <button class="icon-btn icon-btn-danger" onclick="confirmDelete('text', '${entry.id}')" title="${I18N.delete}" aria-label="${I18N.delete_aria_item}">${ICON_TRASH}</button>
+                <button class="icon-btn" onclick="copyItem(this, '${entry.id}')" title="${I18N.copy}">${ICON_COPY}${ICON_CHECK}</button>
               </div>
             </div>
             <div class="item-text" id="entry-text-${entry.id}">${escapeHtml(entry.text)}</div>
@@ -580,8 +580,8 @@
               <span>${formatSize(entry.size)}</span>
             </div>
             <div class="entry-actions">
-              <a class="icon-btn" href="/${sid}/files/${entry.id}" title="${I18N.download}">${ICON_DOWNLOAD}</a>
               <button class="icon-btn icon-btn-danger" onclick="confirmDelete('file', '${entry.id}')" title="${I18N.delete}" aria-label="${I18N.delete_aria_file}">${ICON_TRASH}</button>
+              <a class="icon-btn" href="/${sid}/files/${entry.id}" title="${I18N.download}">${ICON_DOWNLOAD}</a>
             </div>
           </div>
           <div class="entry-title">${escapeHtml(entry.name)}</div>
