@@ -59,8 +59,16 @@ from i18n import DEFAULT_LANGUAGE, LANG_COOKIE, SUPPORTED_LANGUAGES, get_transla
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
-    await sess.close_redis()
+    cleanup_task = asyncio.create_task(sess.periodic_cleanup_loop())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+        await sess.close_redis()
 
 
 app = FastAPI(lifespan=lifespan, docs_url="/docs" if DEBUG else None)
@@ -140,6 +148,12 @@ def _get_language(request: Request) -> str:
 def _tr(lang: str, key: str, **kwargs) -> str:
     value = get_translations(lang)[key]
     return value.format(**kwargs) if kwargs else value
+
+
+def _human_bytes(n: int) -> str:
+    if n >= 1024**3 and n % (1024**3) == 0:
+        return f"{n // (1024**3)} GB"
+    return f"{n // (1024**2)} MB"
 
 
 def _render_template(request: Request, template_name: str, context: dict, status_code: int = 200):
@@ -268,6 +282,12 @@ async def session_page(request: Request, sid: str):
                 "uploaded_at",
             )
         }
+        upload_limits_text = _tr(
+            _get_language(request),
+            "upload_limits",
+            file_max=_human_bytes(FILE_MAX_SIZE_BYTES),
+            session_max=_human_bytes(SESSION_FILE_MAX_BYTES),
+        )
         return _render_template(
             request,
             "session.html",
@@ -276,6 +296,7 @@ async def session_page(request: Request, sid: str):
                 "ttl": SESSION_TTL_SECONDS,
                 "file_max_size": FILE_MAX_SIZE_BYTES,
                 "session_file_max_bytes": SESSION_FILE_MAX_BYTES,
+                "upload_limits_text": upload_limits_text,
                 "js_i18n": js_i18n,
             },
         )
@@ -412,12 +433,23 @@ async def upload_file(
         if message == "File too large.":
             raise HTTPException(
                 status_code=413,
-                detail=f"File too large (max {FILE_MAX_SIZE_BYTES // (1024 * 1024)} MB).",
+                detail=f"File too large (max {_human_bytes(FILE_MAX_SIZE_BYTES)}).",
             ) from exc
         if message == "Session file quota exceeded.":
             raise HTTPException(
                 status_code=413,
-                detail=f"Session quota exceeded (max {SESSION_FILE_MAX_BYTES // (1024 * 1024 * 1024)} GB).",
+                detail=f"Session quota exceeded (max {_human_bytes(SESSION_FILE_MAX_BYTES)}).",
+            ) from exc
+        if message == "Service quota exceeded.":
+            raise HTTPException(
+                status_code=503,
+                detail="Service temporarily at capacity. Try again later.",
+                headers={"Retry-After": "300"},
+            ) from exc
+        if message == "Disk full.":
+            raise HTTPException(
+                status_code=507,
+                detail="Server storage exhausted. Try again later.",
             ) from exc
         raise HTTPException(status_code=422, detail=message) from exc
 

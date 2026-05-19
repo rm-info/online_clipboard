@@ -18,7 +18,10 @@ Files are encrypted on disk under UPLOAD_ROOT/<sid>/<file_id>.bin while Redis ke
 the metadata, ordering and quotas. Reads never refresh the TTL, only real actions do.
 """
 
+import asyncio
+import errno
 import json
+import logging
 import os
 import shutil
 import time
@@ -28,12 +31,16 @@ from typing import AsyncIterator, Optional
 
 import redis.asyncio as aioredis
 
+logger = logging.getLogger(__name__)
+
 from config import (
+    CLEANUP_INTERVAL_SECONDS,
     FILE_MAX_SIZE_BYTES,
     REDIS_URL,
     SESSION_FILE_MAX_BYTES,
     SESSION_MAX_FAILED_ATTEMPTS,
     SESSION_TTL_SECONDS,
+    TOTAL_FILE_MAX_BYTES,
     UPLOAD_ROOT,
 )
 from crypto import decrypt, decrypt_bytes, encrypt, encrypt_bytes, generate_session_id
@@ -142,6 +149,38 @@ def cleanup_expired_upload_dirs() -> None:
 
         if expires_at <= now:
             shutil.rmtree(entry, ignore_errors=True)
+
+
+def global_used_bytes() -> int:
+    """Sum of all encrypted file sizes currently under UPLOAD_ROOT.
+
+    The filesystem is the source of truth; this avoids drift versus any
+    Redis-side counter when sessions expire via TTL without explicit cleanup.
+    """
+    _ensure_upload_root()
+    total = 0
+    for path in _upload_root.rglob("*.bin"):
+        try:
+            total += path.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
+async def periodic_cleanup_loop(interval_seconds: int = CLEANUP_INTERVAL_SECONDS) -> None:
+    """Background sweeper that purges expired session directories on disk.
+
+    Redis keys already expire on their own via TTL; this only reaps the
+    filesystem leftovers so disk doesn't drift upward on a low-traffic site.
+    """
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            cleanup_expired_upload_dirs()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("periodic_cleanup_loop iteration failed")
 
 
 async def _refresh_ttl(r: aioredis.Redis, sid: str) -> None:
@@ -375,14 +414,23 @@ async def save_file(sid: str, filename: str, data: bytes, password: str) -> dict
 
     cleanup_expired_upload_dirs()
 
-    file_id = uuid.uuid4().hex
     encrypted = encrypt_bytes(data, sid, password)
+    if global_used_bytes() + len(encrypted) > TOTAL_FILE_MAX_BYTES:
+        raise ValueError("Service quota exceeded.")
+
+    file_id = uuid.uuid4().hex
     session_dir = _session_dir(sid)
     session_dir.mkdir(parents=True, exist_ok=True)
     stored_name = f"{file_id}.bin"
     file_path = session_dir / stored_name
-    with file_path.open("wb") as handle:
-        handle.write(encrypted)
+    try:
+        with file_path.open("wb") as handle:
+            handle.write(encrypted)
+    except OSError as exc:
+        file_path.unlink(missing_ok=True)
+        if exc.errno == errno.ENOSPC:
+            raise ValueError("Disk full.") from exc
+        raise
 
     meta = _make_file_meta(file_id, filename, stored_name, size)
 

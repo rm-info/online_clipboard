@@ -37,6 +37,12 @@ FILE_MAX_SIZE_BYTES: int = int(os.environ.get("FILE_MAX_SIZE_BYTES", 100 * 1024 
 SESSION_FILE_MAX_BYTES: int = int(
     os.environ.get("SESSION_FILE_MAX_BYTES", 1024 * 1024 * 1024)
 )
+# Global cap across all sessions. Acts as the operator's disk budget for uploads.
+TOTAL_FILE_MAX_BYTES: int = int(
+    os.environ.get("TOTAL_FILE_MAX_BYTES", 10 * 1024 * 1024 * 1024)
+)
+# How often the background task purges expired session directories from disk.
+CLEANUP_INTERVAL_SECONDS: int = int(os.environ.get("CLEANUP_INTERVAL_SECONDS", 600))
 UPLOAD_ROOT: str = os.environ.get("UPLOAD_ROOT", "/tmp/online_clipboard_uploads")
 
 # ---------------------------------------------------------------------------
@@ -53,7 +59,7 @@ SESSION_MAX_FAILED_ATTEMPTS: int = int(os.environ.get("SESSION_MAX_FAILED_ATTEMP
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-APP_VERSION: str = os.environ.get("APP_VERSION", "1.0.0")
+APP_VERSION: str = os.environ.get("APP_VERSION", "1.1.0")
 
 # SSE (Server-Sent Events) for real-time sync.
 # Set to false on shared hosting (Passenger queue saturation).
