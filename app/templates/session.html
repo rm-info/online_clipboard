@@ -1,231 +1,538 @@
 {% extends "base.html" %}
-{% block title %}Session {{ sid }} — Clipboard{% endblock %}
-{% block header_title %}Session Active{% endblock %}
-{% block header_sub %}<div class="header-sub">Authenticated · Wipes in <span id="ttlDisplay">2h 00m</span>{% if sse_enabled %} · <span id="liveIndicator" style="color:var(--fg-muted)">⬤ connecting…</span>{% endif %}</div>{% endblock %}
+{% block title %}{{ tr.session_active_title }} — Clipboard{% endblock %}
+{% block header_title %}{{ tr.session_active_title }}{% endblock %}
+{% block header_sub %}<div class="header-sub">{{ tr.session_active_subtitle }} · {{ tr.wipes_in }} <span id="ttlDisplay">2h 00m</span>{% if sse_enabled %} · <span id="liveIndicator" style="color:var(--fg-muted)">⬤ {{ tr.connecting }}</span>{% endif %}</div>{% endblock %}
+
+{% block extra_head %}
+<style>
+  .session-grid {
+    display: grid;
+    grid-template-columns: 128px minmax(620px, 0.92fr) minmax(320px, 0.58fr);
+    gap: 12px;
+    align-items: start;
+  }
+  .timeline-col {
+    position: sticky;
+    top: 20px;
+  }
+  .feed-col {
+    min-width: 0;
+  }
+  .sidebar-col {
+    position: sticky;
+    top: 20px;
+  }
+  .timeline-panel,
+  .sidebar-stack {
+    display: grid;
+    gap: 12px;
+  }
+  .timeline-list {
+    display: grid;
+    gap: 6px;
+  }
+  .timeline-link {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    width: 100%;
+    min-height: 26px;
+    padding: 0 2px;
+    border: none;
+    background: transparent;
+    color: var(--fg-muted);
+    text-decoration: none;
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .timeline-link:hover,
+  .timeline-link.active {
+    color: var(--accent);
+  }
+  .timeline-index {
+    min-width: 28px;
+  }
+  .timeline-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+  }
+  .timeline-icon svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+  }
+  .hero-stack {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .feed-stack {
+    display: grid;
+    gap: 10px;
+  }
+  .entry-card {
+    scroll-margin-top: 22px;
+  }
+  .entry-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--fg-muted);
+    font-size: .8rem;
+  }
+  .entry-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 26px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--fg-dim);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .entry-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .entry-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .empty-feed {
+    padding: 22px;
+    text-align: center;
+    color: var(--fg-muted);
+    border: 1px dashed var(--border-hi);
+    border-radius: var(--radius);
+    background: rgba(255,255,255,0.02);
+  }
+  .sidebar-note {
+    color: var(--fg-muted);
+    font-size: .88rem;
+  }
+  .overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .overview-card {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+  }
+  .overview-value {
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: .98rem;
+    font-weight: 600;
+  }
+  .overview-label {
+    margin-top: 4px;
+    color: var(--fg-muted);
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .sidebar-actions {
+    display: grid;
+    gap: 10px;
+  }
+  .sidebar-actions .btn {
+    width: 100%;
+  }
+  .drop-row {
+    display: grid;
+    gap: 10px;
+  }
+  .topline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .topline-title {
+    color: var(--fg-dim);
+    font-family: var(--mono);
+    font-size: .78rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .topline-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 1380px) {
+    .session-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+    }
+    .timeline-col { display: none; }
+  }
+
+  @media (max-width: 980px) {
+    .session-grid {
+      grid-template-columns: 1fr;
+    }
+    .sidebar-col,
+    .timeline-col {
+      position: static;
+    }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
+<div class="session-grid">
+  <aside class="timeline-col">
+    <div class="timeline-panel panel">
+      <div class="panel-label">{{ tr.timeline }}</div>
+      <div class="timeline-list" id="timelineList">
+        <div class="muted">{{ tr.timeline_empty }}</div>
+      </div>
+      <div class="sidebar-note">{{ tr.timeline_note }}</div>
+    </div>
+  </aside>
 
-<!-- Session URL -->
-<div class="url-box">
-  <span class="url-text" id="sessionUrl"></span>
-  <button class="copy-btn" onclick="copyUrl()">copy url</button>
+  <main class="feed-col">
+    <div class="hero-stack">
+      <div class="url-box">
+        <span class="url-text" id="sessionUrl"></span>
+        <div class="topline-actions">
+          <button class="icon-btn" onclick="copyUrl()" title="{{ tr.copy }}">⧉</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ttl-label">
+          <span>{{ tr.session_expires }}</span>
+          <span id="ttlPercent">100%</span>
+        </div>
+        <div class="ttl-bar-wrap">
+          <div class="ttl-bar" id="ttlBar"></div>
+        </div>
+      </div>
+    </div>
+
+    <section class="panel">
+      <div class="topline" style="margin-bottom:18px;">
+        <div class="topline-title">{{ tr.messages }} + {{ tr.files }}</div>
+        <div class="muted" id="feedMeta"></div>
+      </div>
+      <div class="feed-stack" id="entriesList">
+        <div class="empty-feed blink">{{ tr.loading }}</div>
+      </div>
+    </section>
+
+    <section class="panel" id="newSessionPanel" style="display:none;">
+      <div class="flex-row flex-end">
+        <a href="/" class="btn btn-primary">↗ {{ tr.new_session }}</a>
+      </div>
+    </section>
+  </main>
+
+  <aside class="sidebar-col">
+    <div class="sidebar-stack">
+      <section class="panel">
+        <div class="panel-label">{{ tr.overview }}</div>
+        <div class="overview-grid">
+          <div class="overview-card">
+            <div class="overview-value" id="overviewEntries">0</div>
+            <div class="overview-label">{{ tr.total_entries }}</div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-value" id="overviewMessages">0</div>
+            <div class="overview-label">{{ tr.messages_count }}</div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-value" id="overviewFiles">0</div>
+            <div class="overview-label">{{ tr.files_count }}</div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-value" id="overviewFileBytes">0 B</div>
+            <div class="overview-label">{{ tr.files_size }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="uploadPanel">
+        <div class="panel-label">{{ tr.upload_files }}</div>
+        <div class="drop-row">
+          <input type="file" id="fileInput" multiple>
+          <div class="flex-row" style="justify-content:space-between;">
+            <span class="muted" id="fileSelection"></span>
+          </div>
+          <span class="muted">{{ tr.upload_limits }}</span>
+          <span class="muted" id="uploadStatus"></span>
+          <button class="btn btn-primary" id="uploadBtn" onclick="uploadFiles()">↑ {{ tr.upload }}</button>
+        </div>
+      </section>
+
+      <section class="panel" id="addPanel">
+        <div class="panel-label">{{ tr.add_message }}</div>
+        <div class="field">
+          <label for="newText" style="display:flex; justify-content:space-between; gap:12px;">
+            <span>{{ tr.messages }}</span>
+            <span id="addSizeIndicator" class="muted">0 B / {{ tr.kb_limit }}</span>
+          </label>
+          <textarea id="newText" placeholder="{{ tr.message_placeholder }}"></textarea>
+        </div>
+        <div class="flex-row flex-end">
+          <span id="addStatus" class="muted" style="margin-right:auto"></span>
+          <button class="btn btn-primary" id="addBtn" onclick="addItem()">＋ {{ tr.add }}</button>
+        </div>
+      </section>
+
+      <section class="panel" id="actionsPanel">
+        <div class="panel-label">{{ tr.controls }}</div>
+        <div class="sidebar-actions">
+          <button class="btn btn-ghost" onclick="window.open('/', '_blank')">↗ {{ tr.new_session }}</button>
+          <button class="btn btn-danger" onclick="confirmWipe()">✕ {{ tr.wipe_session }}</button>
+        </div>
+      </section>
+    </div>
+  </aside>
 </div>
 
-<!-- TTL bar -->
-<div class="ttl-label">
-  <span>Session expires</span>
-  <span id="ttlPercent">100%</span>
-</div>
-<div class="ttl-bar-wrap">
-  <div class="ttl-bar" id="ttlBar"></div>
-</div>
-
-<!-- Items list -->
-<div class="panel">
-  <div class="panel-label">Clipboard items</div>
-  <div id="itemsList">
-    <div class="muted blink">Loading…</div>
-  </div>
-</div>
-
-<!-- New session (shown only after expiry/wipe) -->
-<div class="panel" id="newSessionPanel" style="display:none; animation-delay:.1s">
-  <div class="flex-row flex-end">
-    <a href="/" class="btn btn-primary">+ New session</a>
-  </div>
-</div>
-
-<!-- Add more -->
-<div class="panel" id="addPanel" style="animation-delay:.15s">
-  <div class="panel-label">Add more</div>
-  <div class="field">
-    <label for="newText" style="display:flex; justify-content:space-between;">
-      <span style="opacity:0">​</span>
-      <span id="addSizeIndicator" class="muted">0 B / 500 KB</span>
-    </label>
-    <textarea id="newText" placeholder="Paste more data… (Ctrl+Enter to submit)"></textarea>
-  </div>
-  <div class="flex-row flex-end">
-    <span id="addStatus" class="muted" style="margin-right:auto"></span>
-    <button class="btn btn-primary" id="addBtn" onclick="addItem()">Add →</button>
-  </div>
-</div>
-
-<!-- Actions -->
-<div class="panel" id="actionsPanel" style="animation-delay:.2s">
-  <div class="panel-label">Actions</div>
-  <div class="flex-row">
-    <button class="btn btn-ghost" onclick="window.open('/', '_blank')">+ New session</button>
-    <button class="btn btn-danger" onclick="confirmWipe()">⚠ Wipe session</button>
-  </div>
-</div>
-
-<!-- Wipe confirmation overlay -->
-<div id="wipeOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:100; align-items:center; justify-content:center;">
-  <div class="panel" style="width:100%; max-width:420px; margin:1rem;">
-    <div class="panel-label">Confirm wipe</div>
-    <p class="muted" style="margin-bottom:1.25rem; line-height:1.9">
-      This will immediately and permanently delete all data in this session.
-      This action cannot be undone.
-    </p>
+<div id="wipeOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.76); z-index:100; align-items:center; justify-content:center;">
+  <div class="panel" style="width:min(520px, calc(100vw - 24px));">
+    <div class="panel-label">{{ tr.confirm_wipe }}</div>
+    <p class="muted" style="margin-bottom:18px;">{{ tr.confirm_wipe_text }}</p>
     <div class="flex-row flex-end">
-      <button class="btn btn-ghost" onclick="closeWipe()">Cancel</button>
-      <button class="btn btn-danger" onclick="doWipe()">Delete everything</button>
+      <button class="btn btn-ghost" onclick="closeWipe()">{{ tr.cancel }}</button>
+      <button class="btn btn-danger" onclick="doWipe()">{{ tr.delete_everything }}</button>
     </div>
   </div>
 </div>
 
 <script>
-  /* global sid, TTL_SECONDS */
-  const sid         = {{ sid | tojson }}; // injected by Jinja2
+  const sid = {{ sid | tojson }};
   const TTL_SECONDS = {{ ttl }};
-  const sessionUrl  = window.location.href.split('?')[0];
-  let   startTime   = Date.now();
-  let   knownCount  = 0;
+  const FILE_MAX_SIZE = {{ file_max_size }};
+  const SESSION_FILE_MAX = {{ session_file_max_bytes }};
+  const I18N = {{ js_i18n | tojson }};
+  const sessionUrl = window.location.href.split('?')[0];
+  let startTime = Date.now();
+  let sessionAlive = true;
+  let activeEntryId = null;
 
-  // ---------------------------------------------------------------------------
-  // URL display
-  // ---------------------------------------------------------------------------
   document.getElementById('sessionUrl').textContent = sessionUrl;
-
-  function copyUrl() {
-    navigator.clipboard.writeText(sessionUrl);
-    const btn = document.querySelector('.url-box .copy-btn');
-    btn.textContent = 'copied!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'copy url'; btn.classList.remove('copied'); }, 1500);
-  }
-
-  // ---------------------------------------------------------------------------
-  // TTL countdown
-  // ---------------------------------------------------------------------------
-  function updateTTL() {
-    const elapsed   = (Date.now() - startTime) / 1000;
-    const remaining = Math.max(0, TTL_SECONDS - elapsed);
-    const pct       = Math.max(0, (remaining / TTL_SECONDS) * 100);
-    const h = Math.floor(remaining / 3600);
-    const m = Math.floor((remaining % 3600) / 60);
-    const s = Math.floor(remaining % 60);
-
-    document.getElementById('ttlDisplay').textContent =
-      `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
-    document.getElementById('ttlPercent').textContent = `${Math.round(pct)}%`;
-
-    const bar = document.getElementById('ttlBar');
-    bar.style.width = `${pct}%`;
-    bar.style.background = pct > 50 ? 'var(--accent)' : pct > 20 ? 'var(--warn)' : 'var(--danger)';
-  }
-  const ttlInterval = setInterval(updateTTL, 1000);
-  updateTTL();
-
-  // ---------------------------------------------------------------------------
-  // Render items
-  // ---------------------------------------------------------------------------
-  function renderItems(items) {
-    const container = document.getElementById('itemsList');
-    if (!items.length) {
-      container.innerHTML = '<div class="muted">No items yet.</div>';
-      knownCount = 0;
-      return;
-    }
-    if (items.length === knownCount) return;
-    knownCount = items.length;
-
-    container.innerHTML = items.map((text, i) => `
-      <div class="item-card" style="animation-delay:${i * 0.05}s">
-        <div class="item-card-header">
-          <span class="item-index">#${String(i+1).padStart(2,'0')}</span>
-          <button class="copy-btn" onclick="copyItem(this, ${i})">copy</button>
-        </div>
-        <div class="item-text" id="item-${i}">${escHtml(text)}</div>
-        <div style="text-align:right; margin-top:.35rem;">
-          <span class="muted" style="font-size:.65rem;">${formatSize(new Blob([text]).size)}</span>
-        </div>
-      </div>
-    `).join('');
-  }
 
   function formatSize(bytes) {
     if (bytes === 0) return '0 B';
     if (bytes < 1024) return `${bytes} B`;
-    return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
-  function escHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function copyItem(btn, idx) {
-    navigator.clipboard.writeText(document.getElementById(`item-${idx}`).textContent);
-    btn.textContent = 'copied!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1500);
+  function formatWhen(timestamp) {
+    return new Date(timestamp * 1000).toLocaleString();
   }
 
-  // ---------------------------------------------------------------------------
-  // Fetch items — password is in httponly cookie, sent automatically by browser
-  // JS never touches the password
-  // ---------------------------------------------------------------------------
-  async function fetchItems() {
-    const res = await fetch(`/${sid}/items`);
-    if (res.status === 410) { handleExpired('locked');  return; }
+  function timelineIcon(type) {
+    if (type === 'text') {
+      return `
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M3 4.25h10M3 8h10M3 11.75h6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      `;
+    }
+
+    return `
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M5 2.75h4.6L12.25 5.4V13a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1V3.75a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M9.5 2.9V5.5h2.6" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+      </svg>
+    `;
+  }
+
+  function updateTTL() {
+    const elapsed = (Date.now() - startTime) / 1000;
+    const remaining = Math.max(0, TTL_SECONDS - elapsed);
+    const pct = Math.max(0, (remaining / TTL_SECONDS) * 100);
+    const h = Math.floor(remaining / 3600);
+    const m = Math.floor((remaining % 3600) / 60);
+    const s = Math.floor(remaining % 60);
+
+    document.getElementById('ttlDisplay').textContent = `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+    document.getElementById('ttlPercent').textContent = `${Math.round(pct)}%`;
+    const bar = document.getElementById('ttlBar');
+    bar.style.width = `${pct}%`;
+    bar.style.background = pct > 50 ? 'var(--accent)' : pct > 20 ? 'var(--warn)' : 'var(--danger)';
+  }
+
+  const ttlInterval = setInterval(updateTTL, 1000);
+  updateTTL();
+
+  function copyUrl() {
+    navigator.clipboard.writeText(sessionUrl);
+    const btn = document.querySelector('.url-box .icon-btn');
+    btn.textContent = '✓';
+    setTimeout(() => { btn.textContent = '⧉'; }, 1500);
+  }
+
+  function copyItem(btn, id) {
+    navigator.clipboard.writeText(document.getElementById(`entry-text-${id}`).textContent);
+    btn.textContent = '✓';
+    setTimeout(() => { btn.textContent = '⧉'; }, 1500);
+  }
+
+  function renderEntries(entries, fileBytes) {
+    const container = document.getElementById('entriesList');
+    const timeline = document.getElementById('timelineList');
+    const feedMeta = document.getElementById('feedMeta');
+    const messageCount = entries.filter((entry) => entry.type === 'text').length;
+    const fileCount = entries.filter((entry) => entry.type === 'file').length;
+    document.getElementById('overviewEntries').textContent = String(entries.length);
+    document.getElementById('overviewMessages').textContent = String(messageCount);
+    document.getElementById('overviewFiles').textContent = String(fileCount);
+    document.getElementById('overviewFileBytes').textContent = formatSize(fileBytes);
+    feedMeta.textContent = entries.length
+      ? `${entries.length} · ${I18N.status_used.replace('{used}', formatSize(fileBytes))}`
+      : '';
+
+    if (!entries.length) {
+      container.innerHTML = `<div class="empty-feed">${I18N.empty_state_feed}</div>`;
+      timeline.innerHTML = `<div class="muted">${I18N.timeline_empty}</div>`;
+      return;
+    }
+
+    container.innerHTML = entries.map((entry, index) => {
+      const anchorId = `entry-${entry.type}-${entry.id}`;
+      const label = entry.type === 'text' ? I18N.item_label : I18N.file_label;
+      const icon = entry.type === 'text' ? '✎' : '⬇';
+      const when = entry.type === 'text' ? entry.created_at : entry.uploaded_at;
+
+      if (entry.type === 'text') {
+        return `
+          <article class="item-card entry-card" id="${anchorId}">
+            <div class="item-card-header">
+              <div class="entry-meta">
+                <span class="entry-badge">${icon} ${label}</span>
+                <span>#${String(index + 1).padStart(2, '0')}</span>
+                <span>${formatWhen(when)}</span>
+                <span>${formatSize(entry.size)}</span>
+              </div>
+              <div class="entry-actions">
+                <button class="icon-btn" onclick="copyItem(this, '${entry.id}')" title="${I18N.copy}">⧉</button>
+              </div>
+            </div>
+            <div class="item-text" id="entry-text-${entry.id}">${escapeHtml(entry.text)}</div>
+          </article>
+        `;
+      }
+
+      return `
+        <article class="item-card entry-card" id="${anchorId}">
+          <div class="item-card-header">
+            <div>
+              <div class="entry-badge">${icon} ${label}</div>
+              <div class="entry-title" style="margin-top:12px;">${escapeHtml(entry.name)}</div>
+            </div>
+            <div class="entry-actions">
+              <a class="icon-btn" href="/${sid}/files/${entry.id}" title="${I18N.download}">↓</a>
+            </div>
+          </div>
+          <div class="entry-meta">
+            <span>${formatSize(entry.size)}</span>
+            <span>${I18N.uploaded_at} ${formatWhen(when)}</span>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    timeline.innerHTML = entries.map((entry, index) => {
+      const anchorId = `entry-${entry.type}-${entry.id}`;
+      const active = activeEntryId === anchorId ? ' active' : '';
+      return `
+        <a class="timeline-link${active}" href="#${anchorId}" data-anchor="${anchorId}" title="#${index + 1}">
+          <span class="timeline-index">#${index + 1}</span>
+          <span class="timeline-icon">${timelineIcon(entry.type)}</span>
+        </a>
+      `;
+    }).join('');
+
+    bindTimelineObserver();
+  }
+
+  function bindTimelineObserver() {
+    const cards = document.querySelectorAll('.entry-card');
+    const links = document.querySelectorAll('.timeline-link');
+    if (!cards.length || !links.length || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver((observed) => {
+      observed.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        activeEntryId = entry.target.id;
+        links.forEach((link) => link.classList.toggle('active', link.dataset.anchor === activeEntryId));
+      });
+    }, { rootMargin: '-20% 0px -70% 0px', threshold: 0.05 });
+
+    cards.forEach((card) => observer.observe(card));
+  }
+
+  async function fetchContents() {
+    const res = await fetch(`/${sid}/contents`);
+    if (res.status === 410) { handleExpired('locked'); return; }
     if (res.status === 404) { handleExpired('expired'); return; }
     const data = await res.json();
-    renderItems(data.items || []);
+    renderEntries(data.entries || [], data.file_bytes || 0);
   }
 
-  // ---------------------------------------------------------------------------
-  // Session end states
-  // ---------------------------------------------------------------------------
   function handleExpired(reason) {
     sessionAlive = false;
-    {% if sse_enabled %}if (sseSource) { sseSource.close(); sseSource = null; }{% endif %} // Stops polling from overwriting the message
+    {% if sse_enabled %}if (sseSource) { sseSource.close(); sseSource = null; }{% endif %}
 
     const messages = {
-      locked:  { cls: 'danger', text: '⚠ Session locked after too many failed attempts. All data has been permanently destroyed.' },
-      wiped:   { cls: 'warn',   text: '🗑 This session was manually wiped. All data has been deleted.' },
-      expired: { cls: 'warn',   text: '⏱ Session expired after 2 hours of inactivity. All data has been automatically deleted.' },
+      locked: I18N.session_locked_feed,
+      wiped: I18N.session_wiped_feed,
+      expired: I18N.session_expired_feed,
     };
-    const { cls, text } = messages[reason] || messages.expired;
+    const message = messages[reason] || I18N.session_expired_feed;
 
-    document.getElementById('itemsList').innerHTML =
-      `<div class="alert alert-${cls}">${text}</div>`;
-    document.getElementById('ttlBar').style.cssText = 'width:0%; background:var(--danger)';
-    document.getElementById('addPanel').style.display       = 'none';
-    document.getElementById('actionsPanel').style.display    = 'none';
+    document.getElementById('entriesList').innerHTML = `<div class="alert alert-warn">${message}</div>`;
+    document.getElementById('timelineList').innerHTML = `<div class="muted">${I18N.timeline_empty}</div>`;
+    document.getElementById('uploadPanel').style.display = 'none';
+    document.getElementById('addPanel').style.display = 'none';
+    document.getElementById('actionsPanel').style.display = 'none';
     document.getElementById('newSessionPanel').style.display = 'block';
-
-    // Stop TTL countdown
     clearInterval(ttlInterval);
     document.getElementById('ttlDisplay').textContent = '--';
     document.getElementById('ttlPercent').textContent = '--';
-
-    // Flatten TTL bar
-    document.getElementById('ttlBar').style.cssText = 'width:0%; background:var(--danger)';
-
-    // Update page title
-    document.querySelector('.header-title').textContent = 'Session Ended';
+    document.querySelector('.header-title').textContent = I18N.session_ended;
   }
 
-
-
-
-
-
-  // ---------------------------------------------------------------------------
-  // Add item — password sent automatically via cookie
-  // ---------------------------------------------------------------------------
   async function addItem() {
-    const text   = document.getElementById('newText').value.trim();
+    const text = document.getElementById('newText').value.trim();
     const status = document.getElementById('addStatus');
-    const btn    = document.getElementById('addBtn');
+    const btn = document.getElementById('addBtn');
     if (!text) return;
 
     btn.disabled = true;
-    status.textContent = 'Saving…';
+    status.textContent = I18N.saving;
 
     const body = new URLSearchParams({ text });
-    const res  = await fetch(`/${sid}/add`, {
+    const res = await fetch(`/${sid}/add`, {
       method: 'POST',
       body,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -233,38 +540,95 @@
 
     if (res.ok) {
       document.getElementById('newText').value = '';
-      status.textContent = '✓ Added';
+      status.textContent = I18N.added;
       setTimeout(() => { status.textContent = ''; }, 2000);
       startTime = Date.now();
+      await fetchContents();
     } else {
       if (res.status === 404) { handleExpired('expired'); return; }
-      if (res.status === 410) { handleExpired('locked');  return; }
-      status.textContent = '✗ Error';
+      if (res.status === 410) { handleExpired('locked'); return; }
+      status.textContent = I18N.error;
     }
     btn.disabled = false;
   }
 
-  const MAX_SIZE = 500_000;
+  async function uploadFiles() {
+    const input = document.getElementById('fileInput');
+    const files = Array.from(input.files || []);
+    const status = document.getElementById('uploadStatus');
+    const btn = document.getElementById('uploadBtn');
+
+    if (!files.length) {
+      status.textContent = I18N.select_at_least_one_file;
+      return;
+    }
+
+    btn.disabled = true;
+    for (let i = 0; i < files.length; i += 1) {
+      const file = files[i];
+      if (file.size > FILE_MAX_SIZE) {
+        status.textContent = `${file.name}: ${formatSize(FILE_MAX_SIZE)} max`;
+        btn.disabled = false;
+        return;
+      }
+
+      status.textContent = `${i + 1}/${files.length} · ${file.name}`;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(`/${sid}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        if (res.status === 404) { handleExpired('expired'); return; }
+        if (res.status === 410) { handleExpired('locked'); return; }
+        const data = await res.json().catch(() => ({}));
+        status.textContent = data.detail || I18N.error;
+        btn.disabled = false;
+        return;
+      }
+
+      startTime = Date.now();
+    }
+
+    input.value = '';
+    document.getElementById('fileSelection').textContent = '';
+    status.textContent = I18N.upload_complete;
+    setTimeout(() => { status.textContent = ''; }, 2400);
+    btn.disabled = false;
+    await fetchContents();
+  }
+
+  const MAX_TEXT_SIZE = 500000;
   document.getElementById('newText').addEventListener('input', () => {
-    const size  = new Blob([document.getElementById('newText').value]).size;
-    const el    = document.getElementById('addSizeIndicator');
-    el.textContent  = `${formatSize(size)} / 500 KB`;
-    el.style.color  = size > MAX_SIZE ? 'var(--danger)' : size > MAX_SIZE * 0.8 ? 'var(--warn)' : '';
+    const size = new Blob([document.getElementById('newText').value]).size;
+    const el = document.getElementById('addSizeIndicator');
+    el.textContent = `${formatSize(size)} / {{ tr.kb_limit }}`;
+    el.style.color = size > MAX_TEXT_SIZE ? 'var(--danger)' : size > MAX_TEXT_SIZE * 0.8 ? 'var(--warn)' : '';
   });
 
   document.getElementById('newText').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) addItem();
   });
 
-  // ---------------------------------------------------------------------------
-  // Wipe session
-  // ---------------------------------------------------------------------------
+  document.getElementById('fileInput').addEventListener('change', () => {
+    const files = Array.from(document.getElementById('fileInput').files || []);
+    const total = files.reduce((sum, file) => sum + file.size, 0);
+    document.getElementById('fileSelection').textContent = files.length
+      ? `${files.length} · ${formatSize(total)}`
+      : '';
+  });
+
   function confirmWipe() {
     document.getElementById('wipeOverlay').style.display = 'flex';
   }
+
   function closeWipe() {
     document.getElementById('wipeOverlay').style.display = 'none';
   }
+
   async function doWipe() {
     closeWipe();
     {% if sse_enabled %}if (sseSource) { sseSource.close(); sseSource = null; }{% endif %}
@@ -272,9 +636,6 @@
     window.location.href = '/';
   }
 
-  // ---------------------------------------------------------------------------
-  // SSE — real-time push (enabled via SSE_ENABLED config)
-  // ---------------------------------------------------------------------------
   {% if sse_enabled %}
   let sseSource = null;
 
@@ -284,66 +645,60 @@
 
     sseSource.onopen = () => {
       const el = document.getElementById('liveIndicator');
-      if (el) { el.textContent = '⬤ live'; el.style.color = 'var(--accent)'; }
+      if (el) {
+        el.textContent = `⬤ ${I18N.live}`;
+        el.style.color = 'var(--accent)';
+      }
     };
 
     sseSource.onmessage = async (e) => {
-      if (e.data === 'new_item')        await fetchItems();
+      if (e.data === 'new_item' || e.data === 'new_file') await fetchContents();
       if (e.data === 'session_expired') handleExpired('expired');
-      if (e.data === 'session_locked')  handleExpired('locked');
-      if (e.data === 'session_wiped')   handleExpired('wiped');
+      if (e.data === 'session_locked') handleExpired('locked');
+      if (e.data === 'session_wiped') handleExpired('wiped');
     };
 
     sseSource.onerror = () => {
       const el = document.getElementById('liveIndicator');
-      if (el) { el.textContent = '⬤ reconnecting…'; el.style.color = 'var(--warn)'; }
+      if (el) {
+        el.textContent = `⬤ ${I18N.reconnecting}`;
+        el.style.color = 'var(--warn)';
+      }
     };
   }
   {% endif %}
 
-  // ---------------------------------------------------------------------------
-  // Page Visibility API — immediate check when tab regains focus
-  // ---------------------------------------------------------------------------
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
-      const res = await fetch(`/${sid}/items`).catch(() => null);
+      const res = await fetch(`/${sid}/contents`).catch(() => null);
       if (!res) return;
-      if (res.status === 410) { handleExpired('locked');  return; }
+      if (res.status === 410) { handleExpired('locked'); return; }
       if (res.status === 404) { handleExpired('expired'); return; }
       const data = await res.json().catch(() => ({}));
-      renderItems(data.items || []);
+      renderEntries(data.entries || [], data.file_bytes || 0);
       {% if sse_enabled %}
       if (!sseSource || sseSource.readyState === EventSource.CLOSED) connectSSE();
       {% endif %}
     }
   });
 
-  // ---------------------------------------------------------------------------
-  // Polling — fallback (SSE disabled) or safety net (SSE enabled)
-  // Interval: 10s without SSE, 30s with SSE (SSE handles real-time)
-  // ---------------------------------------------------------------------------
-  let sessionAlive = true;
-
   async function pollSessionStatus() {
     if (!sessionAlive) return;
-    const res = await fetch(`/${sid}/items`).catch(() => null);
+    const res = await fetch(`/${sid}/contents`).catch(() => null);
     if (!res) return;
-    if (res.status === 410) { sessionAlive = false; handleExpired('locked');  return; }
+    if (res.status === 410) { sessionAlive = false; handleExpired('locked'); return; }
     if (res.status === 404) { sessionAlive = false; handleExpired('expired'); return; }
     const data = await res.json().catch(() => ({}));
-    renderItems(data.items || []);
+    renderEntries(data.entries || [], data.file_bytes || 0);
   }
 
   {% if sse_enabled %}
-  setInterval(pollSessionStatus, 30_000);  // SSE handles real-time, poll as safety net
+  setInterval(pollSessionStatus, 30000);
   {% else %}
-  setInterval(pollSessionStatus, 10_000);  // No SSE — poll more frequently
+  setInterval(pollSessionStatus, 10000);
   {% endif %}
 
-  // ---------------------------------------------------------------------------
-  // Init — no password handling needed, server does it all
-  // ---------------------------------------------------------------------------
-  fetchItems();
+  fetchContents();
   {% if sse_enabled %}
   connectSSE();
   {% endif %}

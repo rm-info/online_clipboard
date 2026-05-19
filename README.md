@@ -1,6 +1,6 @@
 # Online Clipboard
 
-Secure, ephemeral clipboard sharing between machines that cannot communicate directly.  
+Secure, ephemeral clipboard and file sharing between machines that cannot communicate directly.  
 Designed for RDP sessions where clipboard sync is disabled, or any scenario requiring
 a quick, passwordless (or password-protected) data transfer between two browsers.
 
@@ -9,9 +9,10 @@ a quick, passwordless (or password-protected) data transfer between two browsers
 ## How it works
 
 1. **Paste** your data on Machine A, optionally set a password, create a session
-2. **Share** the session URL with Machine B
-3. **Retrieve** and read your data within 2 hours
-4. **Everything is wiped automatically** — no traces left after 2 hours of inactivity
+2. **Upload** encrypted files from the session page if needed
+3. **Share** the session URL with Machine B
+4. **Retrieve** text and files within 2 hours
+5. **Everything is wiped automatically** — no traces left after 2 hours of inactivity
 
 Sessions can also be wiped manually at any time via the "Wipe session" button.
 
@@ -29,6 +30,7 @@ Sessions can also be wiped manually at any time via the "Wipe session" button.
 | Brute force | IP rate limiting → temp ban → permanent ban |
 | Session lockdown | Auto-lock after too many failed attempts, data wiped immediately |
 | No plaintext | Data never stored unencrypted, password never visible in JS |
+| File storage | Encrypted files stored ephemerally on disk, deleted with the session |
 
 ### Password handling
 
@@ -119,6 +121,9 @@ nginx -t && systemctl reload nginx
 | `CLIPBOARD_SERVER_SECRET` | **required** | 64-char hex server pepper — generate with `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `REDIS_URL` | `redis://redis:6379/0` | Redis connection string |
 | `SESSION_TTL_SECONDS` | `7200` | Session lifetime in seconds (2 hours) |
+| `FILE_MAX_SIZE_BYTES` | `104857600` | Max file size: 100 MB |
+| `SESSION_FILE_MAX_BYTES` | `1073741824` | Max total file payload per session: 1 GB |
+| `UPLOAD_ROOT` | `/tmp/online_clipboard_uploads` | Ephemeral encrypted file storage directory |
 | `RATE_LIMIT_MAX_ATTEMPTS` | `10` | Failed auth attempts before temp ban |
 | `RATE_LIMIT_WINDOW_SECONDS` | `300` | Window for counting failed attempts (5 min) |
 | `RATE_LIMIT_BAN_SECONDS` | `3600` | Temp ban duration (1 hour) |
@@ -138,14 +143,16 @@ A three-layer approach ensures no event is ever missed:
 - **Page Visibility API** — immediate check when a tab regains focus after being hidden
 - **Polling every 10s** — fallback covering tabs that stay visible on screen while activity happens elsewhere
 
-The SSE heartbeat (every 25s) does **not** refresh the session TTL — only real actions do (adding an item, authenticating).
+The SSE heartbeat (every 25s) does **not** refresh the session TTL — only real actions do (adding an item, authenticating, uploading a file).
 
 ---
 
 ## Data limits
 
-- Max item size: **500 KB**
-- No limit on number of items per session
+- Max text item size: **500 KB**
+- Max file size: **100 MB**
+- Max total file payload per session: **1 GB**
+- No limit on number of text items per session
 - All items are wiped after **2 hours of inactivity** or on manual wipe
 
 ---

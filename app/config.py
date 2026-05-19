@@ -3,7 +3,6 @@ config.py — Centralized configuration loaded from environment variables
 """
 
 import os
-import secrets
 
 
 def _require_env(key: str, min_len: int = 1) -> str:
@@ -34,6 +33,11 @@ REDIS_URL: str = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 SESSION_TTL_SECONDS: int = int(os.environ.get("SESSION_TTL_SECONDS", 7200))  # 2 hours
 SESSION_ID_SHORT_LEN: int = 5
 SESSION_ID_LONG_LEN: int = 50
+FILE_MAX_SIZE_BYTES: int = int(os.environ.get("FILE_MAX_SIZE_BYTES", 100 * 1024 * 1024))
+SESSION_FILE_MAX_BYTES: int = int(
+    os.environ.get("SESSION_FILE_MAX_BYTES", 1024 * 1024 * 1024)
+)
+UPLOAD_ROOT: str = os.environ.get("UPLOAD_ROOT", "/tmp/online_clipboard_uploads")
 
 # ---------------------------------------------------------------------------
 # Rate limiting

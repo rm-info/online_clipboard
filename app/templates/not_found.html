@@ -1,17 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Session Not Found{% endblock %}
-{% block header_title %}Session Not Found{% endblock %}
-{% block header_sub %}<div class="header-sub">Expired, never existed, or already wiped.</div>{% endblock %}
+{% block title %}{{ tr.session_not_found_title }}{% endblock %}
+{% block header_title %}{{ tr.session_not_found_title }}{% endblock %}
+{% block header_sub %}<div class="header-sub">{{ tr.session_not_found_subtitle }}</div>{% endblock %}
 
 {% block content %}
-<div class="panel">
-  <div class="alert alert-warn">
-    Session <code>{{ sid }}</code> does not exist.
-  </div>
-  <p class="muted" style="margin-bottom:1.5rem; line-height:1.9">
-    Sessions are automatically deleted after 2 hours of inactivity.
-    If you believe this session should exist, it may have already expired.
-  </p>
-  <a href="/" class="btn btn-ghost">← Create a new session</a>
+<div class="panel" style="max-width:760px;">
+  <div class="alert alert-warn">{{ tr.session_not_found_message }} <code>{{ sid }}</code>.</div>
+  <p class="muted" style="margin:16px 0 22px;">{{ tr.session_not_found_explainer }}</p>
+  <a href="/" class="btn btn-ghost">← {{ tr.create_another_session }}</a>
 </div>
 {% endblock %}

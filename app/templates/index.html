@@ -1,23 +1,24 @@
 {% extends "base.html" %}
-{% block title %}New Session — Clipboard{% endblock %}
-{% block header_title %}New Session{% endblock %}
-{% block header_sub %}<div class="header-sub">Paste your data. Share the link. Gone in 2 hours.</div>{% endblock %}
+{% block title %}{{ tr.new_session_title }} — Clipboard{% endblock %}
+{% block header_title %}{{ tr.new_session_title }}{% endblock %}
+{% block header_sub %}<div class="header-sub">{{ tr.new_session_subtitle }}</div>{% endblock %}
 
 {% block content %}
-<form method="POST" action="/" id="createForm">
-  <div class="panel">
-    <div class="panel-label">Content</div>
+<div style="display:grid; grid-template-columns:minmax(0,1.35fr) minmax(320px,.8fr); gap:18px;">
+  <form method="POST" action="/" id="createForm" class="panel" style="margin:0;">
+    <div class="panel-label">{{ tr.content }}</div>
+
     <div class="field">
-      <label for="text" style="display:flex; justify-content:space-between;">
-        <span>Data to share</span>
-        <span id="sizeIndicator" class="muted">0 B / 500 KB</span>
+      <label for="text" style="display:flex; justify-content:space-between; gap:12px;">
+        <span>{{ tr.data_to_share }}</span>
+        <span id="sizeIndicator" class="muted">0 B / {{ tr.kb_limit }}</span>
       </label>
-      <textarea name="text" id="text" placeholder="Paste text, credentials, notes…" required autofocus></textarea>
+      <textarea name="text" id="text" placeholder="{{ tr.paste_placeholder }}" required autofocus></textarea>
     </div>
 
     <div class="field">
-      <label for="password">Password <span class="muted">(optional — leave empty for link-only access)</span></label>
-      <input type="password" name="password" id="password" placeholder="Any characters, up to 50" maxlength="50" autocomplete="new-password">
+      <label for="password">{{ tr.password }} <span class="muted">({{ tr.password_optional }})</span></label>
+      <input type="password" name="password" id="password" placeholder="{{ tr.password_placeholder }}" maxlength="50" autocomplete="new-password">
     </div>
 
     <div class="sep"></div>
@@ -27,37 +28,35 @@
         <input type="checkbox" name="secure_mode" id="secure_mode" value="true">
         <span class="switch-track"></span>
       </label>
-      <label class="toggle-label" for="secure_mode">Extended session ID</label>
-      <span class="toggle-hint" id="secureHint">5-char ID (~916M combos)</span>
+      <label class="toggle-label" for="secure_mode">{{ tr.extended_session_id }}</label>
+      <span class="toggle-hint" id="secureHint">{{ tr.short_id_hint }}</span>
     </div>
 
     <div class="flex-row flex-end">
-      <button type="submit" class="btn btn-primary" id="submitBtn">
-        <span>Create session</span>
-        <span>→</span>
-      </button>
+      <button type="submit" class="btn btn-primary" id="submitBtn">↗ {{ tr.create_session }}</button>
     </div>
-  </div>
-</form>
+  </form>
 
-<div class="panel" style="animation-delay:.1s">
-  <div class="panel-label">How it works</div>
-  <div class="muted" style="line-height:2">
-    <div>① Paste your data and optionally set a password</div>
-    <div>② Share the session URL with another machine</div>
-    <div>③ Retrieve and decrypt your data within 2 hours</div>
-    <div>④ Everything is wiped automatically — no traces left</div>
+  <div class="panel">
+    <div class="panel-label">{{ tr.how_it_works }}</div>
+    <div style="display:grid; gap:14px;">
+      <div class="item-card"><strong>01</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_1 }}</div></div>
+      <div class="item-card"><strong>02</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_2 }}</div></div>
+      <div class="item-card"><strong>03</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_3 }}</div></div>
+      <div class="item-card"><strong>04</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_4 }}</div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="muted">{{ tr.files_added_after_create }}</div>
   </div>
 </div>
 
 <script>
+  const tr = {{ tr | tojson }};
   const toggle = document.getElementById('secure_mode');
-  const hint   = document.getElementById('secureHint');
+  const hint = document.getElementById('secureHint');
 
   toggle.addEventListener('change', () => {
-    hint.textContent = toggle.checked
-      ? '50-char ID (brute-force proof)'
-      : '5-char ID (~916M combos)';
+    hint.textContent = toggle.checked ? tr.long_id_hint : tr.short_id_hint;
   });
 
   function formatSize(bytes) {
@@ -67,19 +66,19 @@
   }
 
   const textarea = document.getElementById('text');
-  const sizeEl   = document.getElementById('sizeIndicator');
-  const MAX      = 500_000;
+  const sizeEl = document.getElementById('sizeIndicator');
+  const max = 500000;
 
   textarea.addEventListener('input', () => {
     const size = new Blob([textarea.value]).size;
-    sizeEl.textContent = `${formatSize(size)} / 500 KB`;
-    sizeEl.style.color = size > MAX ? 'var(--danger)' : size > MAX * 0.8 ? 'var(--warn)' : '';
+    sizeEl.textContent = `${formatSize(size)} / ${tr.kb_limit}`;
+    sizeEl.style.color = size > max ? 'var(--danger)' : size > max * 0.8 ? 'var(--warn)' : '';
   });
 
-  document.getElementById('createForm').addEventListener('submit', (e) => {
+  document.getElementById('createForm').addEventListener('submit', () => {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.querySelector('span').textContent = 'Creating…';
+    btn.textContent = tr.creating;
   });
 </script>
 {% endblock %}

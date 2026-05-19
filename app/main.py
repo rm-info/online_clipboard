@@ -8,6 +8,9 @@ Routes:
   GET  /{sid}                 → Auth form (or session view if cookie valid)
   POST /{sid}/auth            → Verify password, set session cookie
   POST /{sid}/add             → Add item to existing authenticated session
+  POST /{sid}/upload          → Upload encrypted file to existing session
+  GET  /{sid}/contents        → JSON: fetch text items + file metadata
+  GET  /{sid}/files/{file_id} → Download decrypted file payload
   GET  /{sid}/items           → JSON: fetch all decrypted items (AJAX)
   POST /{sid}/wipe            → Delete session immediately
   GET  /{sid}/stream          → SSE: real-time push notifications
@@ -20,14 +23,17 @@ Cookie design:
 
 import asyncio
 from contextlib import asynccontextmanager
+from io import BytesIO
 from typing import Annotated
 
 from fastapi import (
+    File,
     FastAPI,
     Form,
     HTTPException,
     Request,
     Response,
+    UploadFile,
     status,
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -36,7 +42,15 @@ from fastapi.templating import Jinja2Templates
 
 import session as sess
 import security as sec
-from config import SESSION_TTL_SECONDS, DEBUG, APP_VERSION, SSE_ENABLED
+from config import (
+    APP_VERSION,
+    DEBUG,
+    FILE_MAX_SIZE_BYTES,
+    SESSION_FILE_MAX_BYTES,
+    SESSION_TTL_SECONDS,
+    SSE_ENABLED,
+)
+from i18n import DEFAULT_LANGUAGE, LANG_COOKIE, SUPPORTED_LANGUAGES, get_translations, normalize_language
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +99,10 @@ def _clear_session_cookies(response: Response, sid: str) -> None:
     response.delete_cookie(key=_pwd_cookie(sid))
 
 
+def _set_language_cookie(response: Response, lang: str) -> None:
+    response.set_cookie(key=LANG_COOKIE, value=lang, max_age=60 * 60 * 24 * 365, samesite="lax")
+
+
 def get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
@@ -102,13 +120,76 @@ def _get_password(request: Request, sid: str) -> str:
     return request.cookies.get(_pwd_cookie(sid), "")
 
 
+def _get_language(request: Request) -> str:
+    query_lang = request.query_params.get("lang")
+    if query_lang:
+        return normalize_language(query_lang)
+
+    cookie_lang = request.cookies.get(LANG_COOKIE)
+    if cookie_lang:
+        return normalize_language(cookie_lang)
+
+    accept_language = request.headers.get("Accept-Language", "")
+    if accept_language:
+        first = accept_language.split(",", 1)[0]
+        return normalize_language(first)
+
+    return DEFAULT_LANGUAGE
+
+
+def _tr(lang: str, key: str, **kwargs) -> str:
+    value = get_translations(lang)[key]
+    return value.format(**kwargs) if kwargs else value
+
+
+def _render_template(request: Request, template_name: str, context: dict, status_code: int = 200):
+    lang = _get_language(request)
+    tr = get_translations(lang)
+    template_context = {
+        "request": request,
+        "lang": lang,
+        "tr": tr,
+        "supported_languages": SUPPORTED_LANGUAGES,
+        **context,
+    }
+    response = templates.TemplateResponse(template_name, template_context, status_code=status_code)
+    if request.cookies.get(LANG_COOKIE) != lang or request.query_params.get("lang"):
+        _set_language_cookie(response, lang)
+    return response
+
+
+async def _read_upload_bytes(upload: UploadFile) -> bytes:
+    """Read an uploaded file with an explicit per-file size limit."""
+    total = 0
+    chunks = []
+    try:
+        while True:
+            chunk = await upload.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > FILE_MAX_SIZE_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large (max {FILE_MAX_SIZE_BYTES // (1024 * 1024)} MB).",
+                )
+            chunks.append(chunk)
+    finally:
+        await upload.close()
+
+    if total == 0:
+        raise HTTPException(status_code=422, detail="File cannot be empty.")
+
+    return b"".join(chunks)
+
+
 # ---------------------------------------------------------------------------
 # GET / — Paste form
 # ---------------------------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return _render_template(request, "index.html", {})
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +225,7 @@ async def create_session(
 
     response = RedirectResponse(url=f"/{sid}", status_code=status.HTTP_303_SEE_OTHER)
     _set_session_cookies(response, sid, password)
+    _set_language_cookie(response, _get_language(request))
     return response
 
 
@@ -154,22 +236,51 @@ async def create_session(
 @app.get("/{sid}", response_class=HTMLResponse)
 async def session_page(request: Request, sid: str):
     if await sess.session_is_locked(sid):
-        return templates.TemplateResponse(
-            "locked.html", {"request": request, "sid": sid}, status_code=410
-        )
+        return _render_template(request, "locked.html", {"sid": sid}, status_code=410)
 
     if not await sess.session_exists(sid):
-        return templates.TemplateResponse(
-            "not_found.html", {"request": request, "sid": sid}, status_code=404
-        )
+        return _render_template(request, "not_found.html", {"sid": sid}, status_code=404)
 
     if await _is_authenticated(request, sid):
-        return templates.TemplateResponse(
+        js_i18n = {
+            key: _tr(_get_language(request), key)
+            for key in (
+                "copy",
+                "copied",
+                "download",
+                "loading",
+                "timeline_empty",
+                "empty_state_feed",
+                "saving",
+                "added",
+                "error",
+                "select_at_least_one_file",
+                "upload_complete",
+                "session_locked_feed",
+                "session_wiped_feed",
+                "session_expired_feed",
+                "live",
+                "reconnecting",
+                "session_ended",
+                "status_used",
+                "item_label",
+                "file_label",
+                "uploaded_at",
+            )
+        }
+        return _render_template(
+            request,
             "session.html",
-            {"request": request, "sid": sid, "ttl": SESSION_TTL_SECONDS},
+            {
+                "sid": sid,
+                "ttl": SESSION_TTL_SECONDS,
+                "file_max_size": FILE_MAX_SIZE_BYTES,
+                "session_file_max_bytes": SESSION_FILE_MAX_BYTES,
+                "js_i18n": js_i18n,
+            },
         )
 
-    return templates.TemplateResponse("auth.html", {"request": request, "sid": sid})
+    return _render_template(request, "auth.html", {"sid": sid})
 
 
 # ---------------------------------------------------------------------------
@@ -209,8 +320,10 @@ async def authenticate(
         return JSONResponse({"error": "wrong_password", "attempts_remaining": remaining}, status_code=401)
 
     await sec.record_success(ip)
+    await sess.touch_session(sid)
     response = RedirectResponse(url=f"/{sid}", status_code=status.HTTP_303_SEE_OTHER)
     _set_session_cookies(response, sid, password)
+    _set_language_cookie(response, _get_language(request))
     return response
 
 
@@ -230,6 +343,20 @@ async def get_items(request: Request, sid: str):
     password = _get_password(request, sid)
     items = await sess.get_items(sid, password)
     return JSONResponse({"items": items})
+
+
+@app.get("/{sid}/contents")
+async def get_contents(request: Request, sid: str):
+    if not await _is_authenticated(request, sid):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    if await sess.session_is_locked(sid):
+        raise HTTPException(status_code=410, detail="Session locked.")
+    if not await sess.session_exists(sid):
+        raise HTTPException(status_code=404, detail="Session expired.")
+
+    password = _get_password(request, sid)
+    contents = await sess.get_session_contents(sid, password)
+    return JSONResponse(contents)
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +387,68 @@ async def add_item(
     return JSONResponse({"ok": True})
 
 
+@app.post("/{sid}/upload")
+async def upload_file(
+    request: Request,
+    sid: str,
+    file: UploadFile = File(...),
+):
+    if not await _is_authenticated(request, sid):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    if await sess.session_is_locked(sid):
+        raise HTTPException(status_code=410, detail="Session locked.")
+    if not await sess.session_exists(sid):
+        raise HTTPException(status_code=404, detail="Session expired.")
+    if not file.filename:
+        raise HTTPException(status_code=422, detail="Filename is required.")
+
+    payload = await _read_upload_bytes(file)
+    password = _get_password(request, sid)
+
+    try:
+        saved = await sess.save_file(sid, file.filename, payload, password)
+    except ValueError as exc:
+        message = str(exc)
+        if message == "File too large.":
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large (max {FILE_MAX_SIZE_BYTES // (1024 * 1024)} MB).",
+            ) from exc
+        if message == "Session file quota exceeded.":
+            raise HTTPException(
+                status_code=413,
+                detail=f"Session quota exceeded (max {SESSION_FILE_MAX_BYTES // (1024 * 1024 * 1024)} GB).",
+            ) from exc
+        raise HTTPException(status_code=422, detail=message) from exc
+
+    return JSONResponse({"ok": True, "file": saved})
+
+
+@app.get("/{sid}/files/{file_id}")
+async def download_file(request: Request, sid: str, file_id: str):
+    if not await _is_authenticated(request, sid):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    if await sess.session_is_locked(sid):
+        raise HTTPException(status_code=410, detail="Session locked.")
+    if not await sess.session_exists(sid):
+        raise HTTPException(status_code=404, detail="Session expired.")
+
+    password = _get_password(request, sid)
+    try:
+        filename, data = await sess.get_file_download(sid, file_id, password)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="File not found.") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Could not decrypt file.") from exc
+
+    safe_name = filename.replace('"', "")
+    return StreamingResponse(
+        BytesIO(data),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+    )
+
+
 # ---------------------------------------------------------------------------
 # POST /{sid}/wipe — Delete session immediately (authenticated)
 # ---------------------------------------------------------------------------
@@ -272,6 +461,7 @@ async def wipe_session(request: Request, sid: str):
     await sess.delete_session(sid, wiped=True)
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
     _clear_session_cookies(response, sid)
+    _set_language_cookie(response, _get_language(request))
     return response
 
 

@@ -1,17 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Session Locked{% endblock %}
-{% block header_title %}Session Locked{% endblock %}
-{% block header_sub %}<div class="header-sub" style="color:var(--danger)">This session has been permanently destroyed.</div>{% endblock %}
+{% block title %}{{ tr.session_locked_title }}{% endblock %}
+{% block header_title %}{{ tr.session_locked_title }}{% endblock %}
+{% block header_sub %}<div class="header-sub" style="color:var(--danger)">{{ tr.session_locked_subtitle }}</div>{% endblock %}
 
 {% block content %}
-<div class="panel">
-  <div class="alert alert-danger">
-    ⚠ Session <code>{{ sid }}</code> was locked and all data wiped after detecting suspicious activity.
-  </div>
-  <p class="muted" style="margin-bottom:1.5rem; line-height:1.9">
-    This can happen when too many incorrect password attempts are detected on this session.
-    The data has been permanently deleted — it cannot be recovered by anyone, including the server.
-  </p>
-  <a href="/" class="btn btn-ghost">← Start a new session</a>
+<div class="panel" style="max-width:760px;">
+  <div class="alert alert-danger">{{ tr.session_locked_message }} <code>{{ sid }}</code>.</div>
+  <p class="muted" style="margin:16px 0 22px;">{{ tr.session_locked_explainer }}</p>
+  <a href="/" class="btn btn-ghost">← {{ tr.start_new_session }}</a>
 </div>
 {% endblock %}

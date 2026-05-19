@@ -10,8 +10,8 @@ Security model:
 - Each piece of data gets a unique random nonce (96-bit), stored alongside ciphertext
 """
 
-import os
 import base64
+import os
 import secrets
 from argon2.low_level import hash_secret_raw, Type
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -128,6 +128,23 @@ def encrypt(plaintext: str, session_id: str, password: str) -> str:
     return f"{nonce_b64}:{ciphertext_b64}"
 
 
+def encrypt_bytes(plaintext: bytes, session_id: str, password: str) -> bytes:
+    """
+    Encrypt arbitrary bytes and return a binary token.
+
+    Binary token format:
+        <12-byte nonce><ciphertext_with_tag>
+    """
+    if not plaintext:
+        raise ValueError("Cannot encrypt empty plaintext.")
+
+    key = derive_key(session_id, password)
+    nonce = secrets.token_bytes(AES_NONCE_SIZE)
+    aesgcm = AESGCM(key)
+    ciphertext_with_tag = aesgcm.encrypt(nonce, plaintext, None)
+    return nonce + ciphertext_with_tag
+
+
 def decrypt(token: str, session_id: str, password: str) -> str:
     """
     Decrypt a token produced by encrypt().
@@ -152,6 +169,20 @@ def decrypt(token: str, session_id: str, password: str) -> str:
     # This raises InvalidTag if authentication fails — DO NOT catch this silently
     plaintext_bytes: bytes = aesgcm.decrypt(nonce, ciphertext_with_tag, None)
     return plaintext_bytes.decode("utf-8")
+
+
+def decrypt_bytes(token: bytes, session_id: str, password: str) -> bytes:
+    """
+    Decrypt a binary token produced by encrypt_bytes().
+    """
+    if len(token) <= AES_NONCE_SIZE:
+        raise ValueError("Invalid binary token format.")
+
+    nonce = token[:AES_NONCE_SIZE]
+    ciphertext_with_tag = token[AES_NONCE_SIZE:]
+    key = derive_key(session_id, password)
+    aesgcm = AESGCM(key)
+    return aesgcm.decrypt(nonce, ciphertext_with_tag, None)
 
 
 # ---------------------------------------------------------------------------

@@ -19,5 +19,8 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Codex CLI artifact
+.codex
+
 # Logs
 *.log

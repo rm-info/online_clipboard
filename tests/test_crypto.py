@@ -9,7 +9,7 @@ import pytest
 # Set required env var before importing the module
 os.environ["CLIPBOARD_SERVER_SECRET"] = secrets.token_hex(32)
 
-from app.crypto import encrypt, decrypt, generate_session_id, derive_key
+from app.crypto import decrypt, decrypt_bytes, derive_key, encrypt, encrypt_bytes, generate_session_id
 from cryptography.exceptions import InvalidTag
 
 
@@ -93,6 +93,20 @@ class TestEncryptDecrypt:
     def test_malformed_token_raises(self, sid, password):
         with pytest.raises(ValueError):
             decrypt("not_a_valid_token", sid, password)
+
+    def test_binary_roundtrip(self, sid, password):
+        payload = b"\x00\x01binary-data\xff"
+        token = encrypt_bytes(payload, sid, password)
+        assert decrypt_bytes(token, sid, password) == payload
+
+    def test_binary_wrong_password_rejected(self, sid, password):
+        token = encrypt_bytes(b"secret-bytes", sid, password)
+        with pytest.raises((InvalidTag, Exception)):
+            decrypt_bytes(token, sid, password + "_wrong")
+
+    def test_binary_empty_payload_raises(self, sid, password):
+        with pytest.raises(ValueError):
+            encrypt_bytes(b"", sid, password)
 
 
 # ---------------------------------------------------------------------------
