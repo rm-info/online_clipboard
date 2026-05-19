@@ -22,6 +22,7 @@ Cookie design:
 """
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from io import BytesIO
 from typing import Annotated
@@ -101,11 +102,34 @@ def _pwd_cookie(sid: str) -> str:
     return f"clip_pwd_{sid}"
 
 
-def _set_session_cookies(response: Response, sid: str, password: str) -> None:
+def _set_session_cookies(
+    response: Response,
+    sid: str,
+    password: str,
+    max_age: int = SESSION_TTL_SECONDS,
+) -> None:
     """Set both auth and password cookies — both httponly, secure."""
-    common = dict(max_age=SESSION_TTL_SECONDS, httponly=True, secure=True, samesite="strict")
+    common = dict(max_age=max_age, httponly=True, secure=True, samesite="strict")
     response.set_cookie(key=_auth_cookie(sid), value="1", **common)
     response.set_cookie(key=_pwd_cookie(sid),  value=password, **common)
+
+
+async def _refresh_session_cookies(response: Response, request: Request, sid: str) -> None:
+    """Align cookie lifetime with the server's sliding session TTL.
+
+    Why: server-side TTL slides on each write activity, but cookies are
+    posted with a fixed max_age at login. A passive viewer (no writes)
+    would lose their cookies 2h after auth even while the session is
+    still alive — the data silently vanishes from their UI until F5.
+    """
+    expires_at = await sess.get_session_expires_at(sid)
+    if not expires_at:
+        return
+    remaining = expires_at - int(time.time())
+    if remaining <= 0:
+        return
+    password = _get_password(request, sid)
+    _set_session_cookies(response, sid, password, max_age=remaining)
 
 
 def _clear_session_cookies(response: Response, sid: str) -> None:
@@ -343,7 +367,7 @@ async def session_page(request: Request, sid: str):
             session_max=_human_bytes(SESSION_FILE_MAX_BYTES, lang),
         )
         expires_at = await sess.get_session_expires_at(sid)
-        return _render_template(
+        response = _render_template(
             request,
             "session.html",
             {
@@ -356,6 +380,8 @@ async def session_page(request: Request, sid: str):
                 "js_i18n": js_i18n,
             },
         )
+        await _refresh_session_cookies(response, request, sid)
+        return response
 
     return _render_template(request, "auth.html", {"sid": sid})
 
@@ -423,7 +449,9 @@ async def get_items(request: Request, sid: str):
 
     password = _get_password(request, sid)
     items = await sess.get_items(sid, password)
-    return JSONResponse({"items": items})
+    response = JSONResponse({"items": items})
+    await _refresh_session_cookies(response, request, sid)
+    return response
 
 
 @app.get("/{sid}/contents")
@@ -437,7 +465,9 @@ async def get_contents(request: Request, sid: str):
 
     password = _get_password(request, sid)
     contents = await sess.get_session_contents(sid, password)
-    return JSONResponse(contents)
+    response = JSONResponse(contents)
+    await _refresh_session_cookies(response, request, sid)
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -465,7 +495,9 @@ async def add_item(
 
     password = _get_password(request, sid)
     await sess.add_item(sid, text, password)
-    return JSONResponse({"ok": True})
+    response = JSONResponse({"ok": True})
+    await _refresh_session_cookies(response, request, sid)
+    return response
 
 
 @app.post("/{sid}/upload")
@@ -524,7 +556,9 @@ async def upload_file(
             ) from exc
         raise HTTPException(status_code=422, detail=message) from exc
 
-    return JSONResponse({"ok": True, "file": saved})
+    response = JSONResponse({"ok": True, "file": saved})
+    await _refresh_session_cookies(response, request, sid)
+    return response
 
 
 @app.get("/{sid}/files/{file_id}")
@@ -545,11 +579,13 @@ async def download_file(request: Request, sid: str, file_id: str):
         raise HTTPException(status_code=500, detail="Could not decrypt file.") from exc
 
     safe_name = filename.replace('"', "")
-    return StreamingResponse(
+    response = StreamingResponse(
         BytesIO(data),
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
     )
+    await _refresh_session_cookies(response, request, sid)
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -624,8 +660,10 @@ async def sse_stream(request: Request, sid: str):
             except asyncio.CancelledError:
                 pass
 
-    return StreamingResponse(
+    response = StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+    await _refresh_session_cookies(response, request, sid)
+    return response

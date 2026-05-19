@@ -609,6 +609,7 @@
     const res = await fetch(`/${sid}/contents`);
     if (res.status === 410) { handleExpired('locked'); return; }
     if (res.status === 404) { handleExpired('expired'); return; }
+    if (res.status === 401) { window.location.reload(); return; }
     const data = await res.json();
     renderEntries(data.entries || [], data.file_bytes || 0);
   }
@@ -661,6 +662,7 @@
     } else {
       if (res.status === 404) { handleExpired('expired'); return; }
       if (res.status === 410) { handleExpired('locked'); return; }
+      if (res.status === 401) { window.location.reload(); return; }
       status.textContent = I18N.error;
     }
     btn.disabled = false;
@@ -698,6 +700,7 @@
       if (!res.ok) {
         if (res.status === 404) { handleExpired('expired'); return; }
         if (res.status === 410) { handleExpired('locked'); return; }
+        if (res.status === 401) { window.location.reload(); return; }
         const data = await res.json().catch(() => ({}));
         status.textContent = data.detail || I18N.error;
         btn.disabled = false;
@@ -788,6 +791,7 @@
       if (!res) return;
       if (res.status === 410) { handleExpired('locked'); return; }
       if (res.status === 404) { handleExpired('expired'); return; }
+      if (res.status === 401) { window.location.reload(); return; }
       const data = await res.json().catch(() => ({}));
       renderEntries(data.entries || [], data.file_bytes || 0);
       {% if sse_enabled %}
@@ -802,6 +806,7 @@
     if (!res) return;
     if (res.status === 410) { sessionAlive = false; handleExpired('locked'); return; }
     if (res.status === 404) { sessionAlive = false; handleExpired('expired'); return; }
+    if (res.status === 401) { window.location.reload(); return; }
     const data = await res.json().catch(() => ({}));
     renderEntries(data.entries || [], data.file_bytes || 0);
   }
