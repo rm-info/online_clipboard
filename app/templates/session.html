@@ -194,7 +194,33 @@
       position: static;
     }
   }
+
+  .qr-canvas-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+    background: #fff;
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+  }
+  .qr-canvas-wrap canvas,
+  .qr-canvas-wrap img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 320px;
+    image-rendering: pixelated;
+  }
+  .qr-url {
+    word-break: break-all;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: var(--fg-dim);
+    user-select: all;
+  }
 </style>
+<script src="/static/qrcode.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -214,7 +240,15 @@
       <div class="url-box">
         <span class="url-text" id="sessionUrl"></span>
         <div class="topline-actions">
-          <button class="icon-btn" onclick="copyUrl()" title="{{ tr.copy }}">⧉</button>
+          <button class="icon-btn" id="copyUrlBtn" type="button" onclick="copyUrl()" title="{{ tr.copy }}">⧉</button>
+          <button class="icon-btn" id="qrBtn" type="button" aria-label="{{ tr.qr_button_label }}" aria-haspopup="dialog" aria-controls="qrModal" title="{{ tr.qr_button_label }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="3" width="6" height="6"/>
+              <rect x="15" y="3" width="6" height="6"/>
+              <rect x="3" y="15" width="6" height="6"/>
+              <path d="M14 14h3v3h-3zM19 14h2M14 19h3v2"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -320,6 +354,18 @@
   </div>
 </div>
 
+<div class="modal-scrim" id="qrModal" role="dialog" aria-modal="true"
+     aria-labelledby="qrModalTitle" aria-hidden="true">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 class="modal-title" id="qrModalTitle">{{ tr.qr_modal_title }}</h2>
+      <button type="button" class="modal-close" id="qrModalClose">{{ tr.close }}</button>
+    </div>
+    <div class="qr-canvas-wrap" id="qrTarget"></div>
+    <div class="qr-url" id="qrUrl"></div>
+  </div>
+</div>
+
 <script>
   const sid = {{ sid | tojson }};
   const TTL_SECONDS = {{ ttl }};
@@ -386,10 +432,56 @@
 
   function copyUrl() {
     navigator.clipboard.writeText(sessionUrl);
-    const btn = document.querySelector('.url-box .icon-btn');
+    const btn = document.getElementById('copyUrlBtn');
     btn.textContent = '✓';
     setTimeout(() => { btn.textContent = '⧉'; }, 1500);
   }
+
+  (() => {
+    const btn = document.getElementById('qrBtn');
+    const modal = document.getElementById('qrModal');
+    const closeBtn = document.getElementById('qrModalClose');
+    const target = document.getElementById('qrTarget');
+    const urlEl = document.getElementById('qrUrl');
+    let rendered = false;
+    let lastFocus = null;
+
+    function render() {
+      if (rendered) return;
+      // Type 0 = auto-pick smallest QR version that fits; EC level "M" is
+      // a balance between density and scan robustness on phone cameras.
+      const qr = qrcode(0, 'M');
+      qr.addData(sessionUrl);
+      qr.make();
+      const img = document.createElement('img');
+      img.src = qr.createDataURL(6, 16);
+      img.alt = 'QR code';
+      target.replaceChildren(img);
+      urlEl.textContent = sessionUrl;
+      rendered = true;
+    }
+    function open() {
+      render();
+      lastFocus = document.activeElement;
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      closeBtn.focus();
+    }
+    function close() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      if (lastFocus) lastFocus.focus();
+    }
+
+    btn.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('open')) close();
+    });
+  })();
 
   function copyItem(btn, id) {
     navigator.clipboard.writeText(document.getElementById(`entry-text-${id}`).textContent);

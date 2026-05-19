@@ -422,6 +422,71 @@
       50% { opacity: .45; }
     }
 
+    /* Shared modal primitives — used by the "how it works" overlay on the
+       home page and the QR code overlay on the session page. */
+    .modal-scrim {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 14px;
+      background: rgba(5, 8, 11, 0.72);
+      backdrop-filter: blur(4px);
+      overflow-y: auto;
+    }
+    .modal-scrim.open { display: flex; }
+    .modal-card {
+      width: 100%;
+      max-width: 520px;
+      margin: auto 0;
+      background: linear-gradient(180deg, rgba(23, 30, 37, 0.98), rgba(17, 22, 27, 0.98));
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .modal-title {
+      margin: 0;
+      color: var(--fg-muted);
+      font-family: var(--mono);
+      font-size: .76rem;
+      font-weight: 600;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .modal-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 38px;
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--fg-dim);
+      font-family: var(--mono);
+      font-size: .75rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .modal-close:hover,
+    .modal-close:focus-visible {
+      color: var(--accent);
+      border-color: var(--accent);
+      outline: none;
+    }
+
     @media (max-width: 1100px) {
       .shell { width: min(100vw - 14px, 1180px); }
       .header {
