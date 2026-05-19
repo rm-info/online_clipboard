@@ -71,7 +71,7 @@ UPLOAD_RATE_LIMIT_WINDOW_SECONDS: int = int(
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-APP_VERSION: str = os.environ.get("APP_VERSION", "1.3.13")
+APP_VERSION: str = os.environ.get("APP_VERSION", "1.3.14")
 
 # SSE (Server-Sent Events) for real-time sync.
 # Set to false on shared hosting (Passenger queue saturation).

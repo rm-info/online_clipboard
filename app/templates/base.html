@@ -629,8 +629,15 @@
       letter-spacing: .14em;
       text-transform: uppercase;
     }
-    /* Modal close buttons reuse .icon-btn directly (38x38 neutral circle with
-       accent-green hover), so no dedicated .modal-close styling is needed. */
+    /* Modal close buttons use .icon-btn for the base 38x38 neutral circle,
+       but override the hover to stay neutral (brighter fg + border) rather
+       than turning accent-green like action buttons — closing a modal is a
+       passive navigation, not an action, and shouldn't pop the same way. */
+    .icon-btn.modal-close:hover,
+    .icon-btn.modal-close:focus-visible {
+      color: var(--fg);
+      border-color: var(--border-hi);
+    }
 
     /* Site-info modal is denser than the QR overlay — widen it and style the
        structured content (sections, cookie list, inline code names). DOM hooks
@@ -720,7 +727,7 @@
     <div class="modal-card modal-card-wide">
       <div class="modal-head">
         <p class="modal-title" id="siteInfoTitle">{{ tr.privacy_title }}</p>
-        <button class="icon-btn" type="button" id="siteInfoClose" onclick="closeSiteInfoModal()" title="{{ tr.close }}" aria-label="{{ tr.close }}">{{ icon_x() }}</button>
+        <button class="icon-btn modal-close" type="button" id="siteInfoClose" onclick="closeSiteInfoModal()" title="{{ tr.close }}" aria-label="{{ tr.close }}">{{ icon_x() }}</button>
       </div>
       <div class="info-body">
         <p>{{ tr.privacy_intro }}</p>
