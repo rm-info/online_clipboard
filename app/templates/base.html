@@ -18,6 +18,9 @@
 {%- macro icon_cookie() -%}
 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M11 17v.01"/><path d="M7 14v.01"/></svg>
 {%- endmacro -%}
+{%- macro icon_trash() -%}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+{%- endmacro -%}
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
@@ -357,6 +360,14 @@
       color: var(--fg);
       border-color: var(--border-hi);
     }
+    /* Variant: per-item trash button. Neutral by default so the timeline isn't
+       littered with red; turns danger-red on hover/focus to signal intent. */
+    .icon-btn.icon-btn-danger:hover,
+    .icon-btn.icon-btn-danger:focus-visible {
+      color: var(--danger);
+      border-color: rgba(255, 92, 114, 0.5);
+    }
+
     /* Standalone info-blue circular button — shared by the privacy entry in
        the header and by .how-info-btn (the mobile-only "how it works"
        trigger on the home page). Visually a true 38x38 circle with a

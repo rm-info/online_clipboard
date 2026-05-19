@@ -364,6 +364,17 @@
   </div>
 </div>
 
+<div id="deleteOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.76); z-index:100; align-items:center; justify-content:center;">
+  <div class="panel" style="width:min(440px, calc(100vw - 24px));">
+    <div class="panel-label" id="deleteTitle">{{ tr.delete_item_title }}</div>
+    <p class="muted" style="margin-bottom:18px;">{{ tr.delete_confirm_text }}</p>
+    <div class="flex-row flex-end">
+      <button class="btn btn-ghost" onclick="closeDelete()">{{ tr.cancel }}</button>
+      <button class="btn btn-danger" id="deleteConfirmBtn" onclick="executeDelete()">{{ tr.delete }}</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-scrim" id="qrModal" role="dialog" aria-modal="true"
      aria-labelledby="qrModalTitle" aria-hidden="true">
   <div class="modal-card">
@@ -390,6 +401,7 @@
   const ICON_COPY = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
   const ICON_CHECK = '<svg class="icon icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
   const ICON_DOWNLOAD = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>';
+  const ICON_TRASH = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
 
   const sessionUrl = window.location.href.split('?')[0];
   // expires_at is the absolute UNIX seconds at which Redis will drop the
@@ -550,6 +562,7 @@
               </div>
               <div class="entry-actions">
                 <button class="icon-btn" onclick="copyItem(this, '${entry.id}')" title="${I18N.copy}">${ICON_COPY}${ICON_CHECK}</button>
+                <button class="icon-btn icon-btn-danger" onclick="confirmDelete('text', '${entry.id}')" title="${I18N.delete}" aria-label="${I18N.delete_aria_item}">${ICON_TRASH}</button>
               </div>
             </div>
             <div class="item-text" id="entry-text-${entry.id}">${escapeHtml(entry.text)}</div>
@@ -568,6 +581,7 @@
             </div>
             <div class="entry-actions">
               <a class="icon-btn" href="/${sid}/files/${entry.id}" title="${I18N.download}">${ICON_DOWNLOAD}</a>
+              <button class="icon-btn icon-btn-danger" onclick="confirmDelete('file', '${entry.id}')" title="${I18N.delete}" aria-label="${I18N.delete_aria_file}">${ICON_TRASH}</button>
             </div>
           </div>
           <div class="entry-title">${escapeHtml(entry.name)}</div>
@@ -753,6 +767,38 @@
     window.location.href = '/';
   }
 
+  let pendingDelete = null;
+
+  function confirmDelete(type, id) {
+    pendingDelete = { type, id };
+    const titleEl = document.getElementById('deleteTitle');
+    titleEl.textContent = type === 'text' ? I18N.delete_item_title : I18N.delete_file_title;
+    document.getElementById('deleteOverlay').style.display = 'flex';
+  }
+
+  function closeDelete() {
+    pendingDelete = null;
+    document.getElementById('deleteOverlay').style.display = 'none';
+  }
+
+  async function executeDelete() {
+    if (!pendingDelete) return;
+    const { type, id } = pendingDelete;
+    const btn = document.getElementById('deleteConfirmBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = I18N.deleting;
+    const url = type === 'text' ? `/${sid}/items/${id}/delete` : `/${sid}/files/${id}/delete`;
+    const res = await fetch(url, { method: 'POST' });
+    btn.disabled = false;
+    btn.textContent = originalText;
+    closeDelete();
+    if (res.ok) { await fetchContents(); return; }
+    if (res.status === 401) { window.location.reload(); return; }
+    if (res.status === 404) { handleExpired('expired'); return; }
+    if (res.status === 410) { handleExpired('locked'); return; }
+  }
+
   {% if sse_enabled %}
   let sseSource = null;
 
@@ -769,7 +815,7 @@
     };
 
     sseSource.onmessage = async (e) => {
-      if (e.data === 'new_item' || e.data === 'new_file') await fetchContents();
+      if (e.data === 'new_item' || e.data === 'new_file' || e.data === 'item_deleted' || e.data === 'file_deleted') await fetchContents();
       if (e.data === 'session_expired') handleExpired('expired');
       if (e.data === 'session_locked') handleExpired('locked');
       if (e.data === 'session_wiped') handleExpired('wiped');

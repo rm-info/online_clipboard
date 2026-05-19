@@ -378,6 +378,12 @@ async def session_page(request: Request, sid: str):
                 "status_used",
                 "item_label",
                 "file_label",
+                "delete",
+                "deleting",
+                "delete_item_title",
+                "delete_file_title",
+                "delete_aria_item",
+                "delete_aria_file",
             )
         }
         lang = _get_language(request)
@@ -605,6 +611,50 @@ async def download_file(request: Request, sid: str, file_id: str):
         media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
     )
+    await _refresh_session_cookies(response, request, sid)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# POST /{sid}/items/{item_id}/delete — Delete a single text item
+# ---------------------------------------------------------------------------
+
+@app.post("/{sid}/items/{item_id}/delete")
+async def delete_item_endpoint(request: Request, sid: str, item_id: str):
+    if not await _is_authenticated(request, sid):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    if await sess.session_is_locked(sid):
+        raise HTTPException(status_code=410, detail="Session locked.")
+    if not await sess.session_exists(sid):
+        raise HTTPException(status_code=404, detail="Session expired.")
+
+    deleted = await sess.delete_item(sid, item_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Item not found.")
+
+    response = JSONResponse({"ok": True})
+    await _refresh_session_cookies(response, request, sid)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# POST /{sid}/files/{file_id}/delete — Delete a single file
+# ---------------------------------------------------------------------------
+
+@app.post("/{sid}/files/{file_id}/delete")
+async def delete_file_endpoint(request: Request, sid: str, file_id: str):
+    if not await _is_authenticated(request, sid):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    if await sess.session_is_locked(sid):
+        raise HTTPException(status_code=410, detail="Session locked.")
+    if not await sess.session_exists(sid):
+        raise HTTPException(status_code=404, detail="Session expired.")
+
+    deleted = await sess.delete_file(sid, file_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    response = JSONResponse({"ok": True})
     await _refresh_session_cookies(response, request, sid)
     return response
 

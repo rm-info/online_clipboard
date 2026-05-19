@@ -247,6 +247,9 @@ async def _append_text_entry(
     return meta
 
 
+VERIFIER_PLAINTEXT = "verifier"
+
+
 async def create_session(
     first_item: str,
     password: str,
@@ -259,14 +262,17 @@ async def create_session(
     for _ in range(5):
         sid = generate_session_id(secure_mode=secure_mode)
         key = derive_key(sid, password)
+        verifier_token = encrypt(VERIFIER_PLAINTEXT, key)
         meta = {
             "has_password": "1" if password else "0",
             "created_at": str(_now()),
+            "verifier": verifier_token,
         }
 
         async with r.pipeline(transaction=True) as pipe:
             pipe.hsetnx(_key_meta(sid), "has_password", meta["has_password"])
             pipe.hsetnx(_key_meta(sid), "created_at", meta["created_at"])
+            pipe.hsetnx(_key_meta(sid), "verifier", meta["verifier"])
             results = await pipe.execute()
 
         if not results[0]:
@@ -370,12 +376,16 @@ async def verify_password(sid: str, password: str) -> Optional[bytes]:
             return None
         return key
 
-    first_token = await r.lindex(_key_items(sid), 0)
-    if not first_token:
+    # Try the dedicated verifier token first; fall back to the first item
+    # for legacy sessions created before verifier was introduced.
+    verifier = await r.hget(_key_meta(sid), "verifier")
+    if not verifier:
+        verifier = await r.lindex(_key_items(sid), 0)
+    if not verifier:
         return None
 
     try:
-        decrypt(first_token, key)
+        decrypt(verifier, key)
         await r.delete(_key_failed(sid))
         return key
     except Exception:
@@ -391,6 +401,70 @@ async def add_item(sid: str, plaintext: str, key: bytes) -> None:
     await _append_text_entry(r, sid, plaintext, key)
     await _refresh_ttl(r, sid)
     await r.publish(_channel(sid), "new_item")
+
+
+async def delete_item(sid: str, item_id: str) -> bool:
+    """Remove a single text item. Returns True if it existed and was removed.
+
+    Does NOT refresh the session TTL — removing content shouldn't keep the
+    session alive longer, mirroring the auth-doesnt-refresh pattern. The
+    verifier in meta (set at session creation) is what gates new auths, so
+    deleting all items doesn't lock anyone out.
+    """
+    r = await get_redis()
+
+    if not await r.hexists(_key_item_meta(sid), item_id):
+        return False
+
+    # item_order and items are RPUSH'd in lockstep, so the index in
+    # item_order is the same as in items. Read the token before mutating.
+    idx = await r.lpos(_key_item_order(sid), item_id)
+    token = await r.lindex(_key_items(sid), idx) if idx is not None else None
+
+    async with r.pipeline(transaction=True) as pipe:
+        pipe.hdel(_key_item_meta(sid), item_id)
+        pipe.lrem(_key_item_order(sid), 1, item_id)
+        pipe.lrem(_key_entries(sid), 1, _entry_ref("text", item_id))
+        if token is not None:
+            pipe.lrem(_key_items(sid), 1, token)
+        await pipe.execute()
+
+    await r.publish(_channel(sid), "item_deleted")
+    return True
+
+
+async def delete_file(sid: str, file_id: str) -> bool:
+    """Remove a single file (Redis metadata + on-disk encrypted blob).
+
+    Decrements the per-session file-byte counter so future uploads can reclaim
+    the freed quota. Does NOT refresh the session TTL.
+    """
+    r = await get_redis()
+
+    raw_meta = await r.hget(_key_files(sid), file_id)
+    if not raw_meta:
+        return False
+
+    meta = _load_meta(raw_meta)
+    size = int(meta.get("size", 0))
+    stored_name = meta.get("stored_name")
+
+    async with r.pipeline(transaction=True) as pipe:
+        pipe.hdel(_key_files(sid), file_id)
+        pipe.lrem(_key_file_order(sid), 1, file_id)
+        pipe.lrem(_key_entries(sid), 1, _entry_ref("file", file_id))
+        if size > 0:
+            pipe.decrby(_key_file_bytes(sid), size)
+        await pipe.execute()
+
+    if stored_name:
+        try:
+            (_session_dir(sid) / stored_name).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    await r.publish(_channel(sid), "file_deleted")
+    return True
 
 
 async def touch_session(sid: str) -> None:

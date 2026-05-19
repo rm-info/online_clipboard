@@ -129,6 +129,13 @@ TRANSLATIONS = {
         "privacy_not_doing_text": "No tracking, no analytics, no third-party scripts. No content logging, no backup beyond Redis and ephemeral disk. No data sent to any third party. No advertising cookies.",
         "privacy_lifetime_heading": "Retention",
         "privacy_lifetime_text": "2-hour sliding window after the last write. After that, everything (encrypted content in Redis and on disk) is automatically deleted. You can also wipe immediately via the \"Wipe session\" button.",
+        "delete": "Delete",
+        "deleting": "Deleting…",
+        "delete_item_title": "Delete this message?",
+        "delete_file_title": "Delete this file?",
+        "delete_confirm_text": "This entry will be removed immediately and cannot be recovered.",
+        "delete_aria_item": "Delete message",
+        "delete_aria_file": "Delete file",
     },
     "fr": {
         "app_name": "presse-papiers en ligne",
@@ -251,6 +258,13 @@ TRANSLATIONS = {
         "privacy_not_doing_text": "Pas de tracking, pas d’analytics, pas de scripts tiers. Aucun log du contenu, aucune sauvegarde au-delà de Redis et du disque éphémère. Aucune donnée envoyée à un tiers. Aucun cookie publicitaire.",
         "privacy_lifetime_heading": "Durée de conservation",
         "privacy_lifetime_text": "2 heures glissantes après la dernière écriture. Au-delà, tout (contenu chiffré dans Redis et sur disque) est supprimé automatiquement. Tu peux aussi tout effacer immédiatement via le bouton « Effacer la session ».",
+        "delete": "Supprimer",
+        "deleting": "Suppression…",
+        "delete_item_title": "Supprimer ce message ?",
+        "delete_file_title": "Supprimer ce fichier ?",
+        "delete_confirm_text": "Cet élément sera retiré immédiatement et ne pourra pas être récupéré.",
+        "delete_aria_item": "Supprimer le message",
+        "delete_aria_file": "Supprimer le fichier",
     },
 }
 
