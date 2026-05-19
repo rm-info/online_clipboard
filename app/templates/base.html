@@ -4,10 +4,59 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Clipboard{% endblock %}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* IBM Plex (Mono + Sans) — self-hosted, latin subset only.
+       OFL 1.1 + Apache 2.0, https://github.com/IBM/plex */
+    @font-face {
+      font-family: 'IBM Plex Mono';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('/static/fonts/plex-mono-400.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'IBM Plex Mono';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url('/static/fonts/plex-mono-500.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'IBM Plex Mono';
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url('/static/fonts/plex-mono-600.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'IBM Plex Sans';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('/static/fonts/plex-sans-400.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'IBM Plex Sans';
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url('/static/fonts/plex-sans-500.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'IBM Plex Sans';
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+      src: url('/static/fonts/plex-sans-600.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'IBM Plex Sans';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('/static/fonts/plex-sans-700.woff2') format('woff2');
+    }
+
     :root {
       color-scheme: dark;
       --bg: #0a0d10;
@@ -308,6 +357,14 @@
       border-radius: var(--radius-sm);
       border: 1px solid;
       font-size: .92rem;
+      overflow-wrap: anywhere;
+    }
+    .alert code {
+      font-family: var(--mono);
+      font-size: .88rem;
+      padding: 1px 6px;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 6px;
     }
     .alert-danger {
       color: #ffd7dd;
