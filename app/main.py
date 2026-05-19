@@ -208,7 +208,6 @@ async def healthz():
     used = sess.global_used_bytes()
     cap = TOTAL_FILE_MAX_BYTES
     ratio = used / cap if cap > 0 else 0.0
-    over_threshold = ratio >= HEALTHZ_WARN_RATIO
 
     redis_ok = True
     try:
@@ -217,9 +216,16 @@ async def healthz():
     except Exception:
         redis_ok = False
 
-    healthy = redis_ok and not over_threshold
+    reasons = []
+    if not redis_ok:
+        reasons.append("redis_unreachable")
+    if ratio >= HEALTHZ_WARN_RATIO:
+        reasons.append("disk_over_threshold")
+
+    healthy = not reasons
     payload = {
         "status": "ok" if healthy else "warn",
+        "reasons": reasons,
         "redis_ok": redis_ok,
         "disk_used_bytes": used,
         "disk_cap_bytes": cap,
