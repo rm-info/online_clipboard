@@ -156,10 +156,11 @@ def _tr(lang: str, key: str, **kwargs) -> str:
     return value.format(**kwargs) if kwargs else value
 
 
-def _human_bytes(n: int) -> str:
+def _human_bytes(n: int, lang: str = "en") -> str:
+    mb, gb = ("Mo", "Go") if lang == "fr" else ("MB", "GB")
     if n >= 1024**3 and n % (1024**3) == 0:
-        return f"{n // (1024**3)} GB"
-    return f"{n // (1024**2)} MB"
+        return f"{n // (1024**3)} {gb}"
+    return f"{n // (1024**2)} {mb}"
 
 
 def _render_template(request: Request, template_name: str, context: dict, status_code: int = 200):
@@ -335,11 +336,12 @@ async def session_page(request: Request, sid: str):
                 "uploaded_at",
             )
         }
+        lang = _get_language(request)
         upload_limits_text = _tr(
-            _get_language(request),
+            lang,
             "upload_limits",
-            file_max=_human_bytes(FILE_MAX_SIZE_BYTES),
-            session_max=_human_bytes(SESSION_FILE_MAX_BYTES),
+            file_max=_human_bytes(FILE_MAX_SIZE_BYTES, lang),
+            session_max=_human_bytes(SESSION_FILE_MAX_BYTES, lang),
         )
         return _render_template(
             request,
