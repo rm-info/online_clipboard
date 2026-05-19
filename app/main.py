@@ -46,9 +46,11 @@ from config import (
     APP_VERSION,
     DEBUG,
     FILE_MAX_SIZE_BYTES,
+    HEALTHZ_WARN_RATIO,
     SESSION_FILE_MAX_BYTES,
     SESSION_TTL_SECONDS,
     SSE_ENABLED,
+    TOTAL_FILE_MAX_BYTES,
 )
 from i18n import DEFAULT_LANGUAGE, LANG_COOKIE, SUPPORTED_LANGUAGES, get_translations, normalize_language
 
@@ -195,6 +197,37 @@ async def _read_upload_bytes(upload: UploadFile) -> bytes:
         raise HTTPException(status_code=422, detail="File cannot be empty.")
 
     return b"".join(chunks)
+
+
+# ---------------------------------------------------------------------------
+# GET /healthz — Liveness + disk budget probe (anonymous)
+# ---------------------------------------------------------------------------
+
+@app.get("/healthz")
+async def healthz():
+    used = sess.global_used_bytes()
+    cap = TOTAL_FILE_MAX_BYTES
+    ratio = used / cap if cap > 0 else 0.0
+    over_threshold = ratio >= HEALTHZ_WARN_RATIO
+
+    redis_ok = True
+    try:
+        r = await sess.get_redis()
+        await r.ping()
+    except Exception:
+        redis_ok = False
+
+    healthy = redis_ok and not over_threshold
+    payload = {
+        "status": "ok" if healthy else "warn",
+        "redis_ok": redis_ok,
+        "disk_used_bytes": used,
+        "disk_cap_bytes": cap,
+        "disk_ratio": round(ratio, 4),
+        "warn_ratio": HEALTHZ_WARN_RATIO,
+        "version": APP_VERSION,
+    }
+    return JSONResponse(payload, status_code=200 if healthy else 503)
 
 
 # ---------------------------------------------------------------------------

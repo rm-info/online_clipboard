@@ -43,6 +43,8 @@ TOTAL_FILE_MAX_BYTES: int = int(
 )
 # How often the background task purges expired session directories from disk.
 CLEANUP_INTERVAL_SECONDS: int = int(os.environ.get("CLEANUP_INTERVAL_SECONDS", 600))
+# /healthz returns 503 when disk usage ratio reaches this threshold (0.0–1.0).
+HEALTHZ_WARN_RATIO: float = float(os.environ.get("HEALTHZ_WARN_RATIO", 0.8))
 UPLOAD_ROOT: str = os.environ.get("UPLOAD_ROOT", "/tmp/online_clipboard_uploads")
 
 # ---------------------------------------------------------------------------
