@@ -16,6 +16,8 @@ a quick, passwordless (or password-protected) data transfer between two browsers
 
 Sessions can also be wiped manually at any time via the "Wipe session" button.
 
+The UI is available in **English and French** (auto-detected from `Accept-Language`, switchable via the language toggle in the header).
+
 ---
 
 ## Security model
@@ -25,9 +27,10 @@ Sessions can also be wiped manually at any time via the "Wipe session" button.
 | Encryption | AES-256-GCM (authenticated — detects tampering) |
 | Key derivation | Argon2id — password + server secret → 256-bit key |
 | Server pepper | `CLIPBOARD_SERVER_SECRET` — Redis dump useless without it |
-| Transport | HTTPS only, HSTS enforced via Nginx |
+| Transport | HTTPS only (HSTS enforced by your reverse proxy) |
 | Session TTL | 2-hour sliding window, reset only on real activity (not heartbeats) |
-| Brute force | IP rate limiting → temp ban → permanent ban |
+| Auth brute-force | IP rate limiting on bad passwords → temp ban → permanent ban |
+| Anti-bot | Per-IP quotas on session creation and file upload (429 + `Retry-After`) |
 | Session lockdown | Auto-lock after too many failed attempts, data wiped immediately |
 | No plaintext | Data never stored unencrypted, password never visible in JS |
 | File storage | Encrypted files stored ephemerally on disk, deleted with the session |
@@ -66,22 +69,35 @@ cp .env.example .env
 docker compose up -d
 ```
 
-App available at `http://localhost:8000`.  
-Put Nginx in front for production (see `nginx.conf`).
+App available at `http://localhost:8000` (bound to loopback by the
+default `docker-compose.yml`). Put a reverse proxy of your choice in
+front for TLS — sample Nginx config in `nginx.conf`, but Caddy,
+Traefik, or anything else works as well.
 
 ---
 
-## Production deployment (Nginx + Let's Encrypt)
+## Production deployment
+
+Any reverse proxy that can terminate TLS and forward to
+`127.0.0.1:8000` works. The app trusts standard proxy headers
+(`X-Forwarded-For`, etc.) via FastAPI's `ProxyHeadersMiddleware`.
+
+### Sample: Nginx + Let's Encrypt
 
 ```bash
-# Get a TLS certificate
 certbot certonly --nginx -d your.domain.com
-
-# Install Nginx config
 cp nginx.conf /etc/nginx/sites-available/clipboard
 # Edit: replace 'your.domain.com' with your actual domain
 ln -s /etc/nginx/sites-available/clipboard /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
+```
+
+### Sample: Caddy
+
+```caddy
+clipboard.your.domain {
+    reverse_proxy 127.0.0.1:8000
+}
 ```
 
 ---
@@ -90,24 +106,26 @@ nginx -t && systemctl reload nginx
 
 ```
 ├── app/
-│   ├── main.py         # FastAPI routes
+│   ├── main.py         # FastAPI routes (incl. /healthz)
 │   ├── crypto.py       # AES-256-GCM encryption + Argon2id KDF
-│   ├── session.py      # Redis session management + pub/sub
-│   ├── security.py     # IP rate limiting and ban logic
+│   ├── session.py      # Redis session mgmt, pub/sub, periodic sweeper
+│   ├── security.py     # IP rate limiting (auth + per-action quotas)
 │   ├── config.py       # Environment configuration
+│   ├── i18n.py         # EN/FR translations
 │   ├── static/         # Static assets
 │   └── templates/
-│       ├── base.html       # Base layout + styles
-│       ├── index.html      # Session creation form
+│       ├── base.html       # Base layout + styles + lang switch
+│       ├── index.html      # Session creation form + mobile info modal
 │       ├── auth.html       # Authentication form
 │       ├── session.html    # Active session view
 │       ├── locked.html     # Locked session page
 │       └── not_found.html  # Expired/unknown session page
 ├── tests/
+│   ├── conftest.py
 │   └── test_crypto.py  # Crypto unit tests
 ├── Dockerfile
 ├── docker-compose.yml
-├── nginx.conf
+├── nginx.conf          # Sample Nginx config (optional)
 ├── .env.example
 └── README.md
 ```
@@ -121,15 +139,22 @@ nginx -t && systemctl reload nginx
 | `CLIPBOARD_SERVER_SECRET` | **required** | 64-char hex server pepper — generate with `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `REDIS_URL` | `redis://redis:6379/0` | Redis connection string |
 | `SESSION_TTL_SECONDS` | `7200` | Session lifetime in seconds (2 hours) |
-| `FILE_MAX_SIZE_BYTES` | `104857600` | Max file size: 100 MB |
-| `SESSION_FILE_MAX_BYTES` | `1073741824` | Max total file payload per session: 1 GB |
+| `FILE_MAX_SIZE_BYTES` | `104857600` | Max single-file size — 100 MiB |
+| `SESSION_FILE_MAX_BYTES` | `1073741824` | Max total file payload per session — 1 GiB |
+| `TOTAL_FILE_MAX_BYTES` | `10737418240` | Global disk budget across all sessions — 10 GiB |
+| `CLEANUP_INTERVAL_SECONDS` | `600` | How often the background task purges expired session dirs from disk |
 | `UPLOAD_ROOT` | `/tmp/online_clipboard_uploads` | Ephemeral encrypted file storage directory |
+| `HEALTHZ_WARN_RATIO` | `0.8` | `/healthz` returns 503 when `disk_used / TOTAL_FILE_MAX_BYTES` reaches this ratio |
 | `RATE_LIMIT_MAX_ATTEMPTS` | `10` | Failed auth attempts before temp ban |
 | `RATE_LIMIT_WINDOW_SECONDS` | `300` | Window for counting failed attempts (5 min) |
 | `RATE_LIMIT_BAN_SECONDS` | `3600` | Temp ban duration (1 hour) |
 | `RATE_LIMIT_PERM_BAN_THRESHOLD` | `3` | Temp bans before permanent ban |
 | `SESSION_MAX_FAILED_ATTEMPTS` | `20` | Failed attempts before session is locked forever |
-| `APP_VERSION` | `1.0.0` | Version displayed in the footer |
+| `CREATE_RATE_LIMIT_MAX` | `30` | Per-IP session creations allowed in `CREATE_RATE_LIMIT_WINDOW_SECONDS`. Set ≤ 0 to disable. |
+| `CREATE_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the create quota (1 hour) |
+| `UPLOAD_RATE_LIMIT_MAX` | `60` | Per-IP uploads allowed in `UPLOAD_RATE_LIMIT_WINDOW_SECONDS`. Set ≤ 0 to disable. |
+| `UPLOAD_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the upload quota (1 hour) |
+| `APP_VERSION` | `1.2.0` | Version displayed in the footer |
 | `DEBUG` | `false` | Enable FastAPI debug mode and `/docs` endpoint |
 
 ---
@@ -147,13 +172,54 @@ The SSE heartbeat (every 25s) does **not** refresh the session TTL — only real
 
 ---
 
-## Data limits
+## Data limits (defaults — all tunable via env)
 
 - Max text item size: **500 KB**
-- Max file size: **100 MB**
-- Max total file payload per session: **1 GB**
+- Max file size: **100 MiB** per file
+- Max total file payload per session: **1 GiB**
+- Global disk budget across all sessions: **10 GiB** — server-side stop before disk fills
+- Per-IP create quota: **30 sessions / hour**
+- Per-IP upload quota: **60 uploads / hour**
 - No limit on number of text items per session
 - All items are wiped after **2 hours of inactivity** or on manual wipe
+
+When the global disk budget is reached, uploads receive `503 Service
+Unavailable` with a `Retry-After` header. When the filesystem itself is
+out of space (`ENOSPC`), uploads receive `507 Insufficient Storage`.
+
+---
+
+## Operations
+
+### `/healthz` — liveness + storage probe
+
+Anonymous JSON endpoint suitable for an external monitor (Uptime Kuma,
+healthcheck.io, k8s probes, etc.):
+
+```json
+{
+  "status": "ok",
+  "reasons": [],
+  "redis_ok": true,
+  "disk_used_bytes": 0,
+  "disk_cap_bytes": 10737418240,
+  "disk_ratio": 0.0,
+  "warn_ratio": 0.8,
+  "version": "1.2.0"
+}
+```
+
+- Returns **200** when Redis is reachable and `disk_ratio < HEALTHZ_WARN_RATIO`.
+- Returns **503** otherwise. The `reasons` array (`"redis_unreachable"`,
+  `"disk_over_threshold"`) surfaces the failure cause directly in the
+  response body, which most monitors display on a failed heartbeat.
+
+### Disk cleanup
+
+A background task (`CLEANUP_INTERVAL_SECONDS`, default 600 s) purges
+expired session directories from disk. Redis keys expire on their own
+via TTL; this only reaps filesystem leftovers so disk usage doesn't
+drift upward on a low-traffic deployment.
 
 ---
 
