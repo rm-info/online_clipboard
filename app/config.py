@@ -58,6 +58,16 @@ RATE_LIMIT_PERM_BAN_THRESHOLD: int = int(os.environ.get("RATE_LIMIT_PERM_BAN_THR
 # Max failed attempts on a single session before it's locked forever
 SESSION_MAX_FAILED_ATTEMPTS: int = int(os.environ.get("SESSION_MAX_FAILED_ATTEMPTS", 20))
 
+# Per-IP quotas on POST / and POST /{sid}/upload. Set max <= 0 to disable.
+CREATE_RATE_LIMIT_MAX: int = int(os.environ.get("CREATE_RATE_LIMIT_MAX", 30))
+CREATE_RATE_LIMIT_WINDOW_SECONDS: int = int(
+    os.environ.get("CREATE_RATE_LIMIT_WINDOW_SECONDS", 3600)
+)
+UPLOAD_RATE_LIMIT_MAX: int = int(os.environ.get("UPLOAD_RATE_LIMIT_MAX", 60))
+UPLOAD_RATE_LIMIT_WINDOW_SECONDS: int = int(
+    os.environ.get("UPLOAD_RATE_LIMIT_WINDOW_SECONDS", 3600)
+)
+
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------

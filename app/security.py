@@ -3,9 +3,10 @@ security.py — IP-based rate limiting and ban management
 =========================================================
 
 Redis key schema:
-  ratelimit:{ip}:attempts     STRING  integer (expires after window)
-  ratelimit:{ip}:tempbans     STRING  integer (number of temp bans received)
-  ratelimit:{ip}:banned       STRING  "temp" or "perm" (expiry = ban duration)
+  ratelimit:{ip}:attempts        STRING  integer (expires after window)
+  ratelimit:{ip}:tempbans        STRING  integer (number of temp bans received)
+  ratelimit:{ip}:banned          STRING  "temp" or "perm" (expiry = ban duration)
+  actionlimit:{action}:{ip}      STRING  integer counter for per-action quotas
 """
 
 from config import (
@@ -86,3 +87,32 @@ async def get_attempts_remaining(ip: str) -> int:
     val = await r.get(_key_attempts(ip))
     used = int(val) if val else 0
     return max(0, RATE_LIMIT_MAX_ATTEMPTS - used)
+
+
+# ---------------------------------------------------------------------------
+# Per-action quotas (anti-bot for create/upload endpoints)
+# ---------------------------------------------------------------------------
+
+async def check_action_quota(
+    ip: str,
+    action: str,
+    max_per_window: int,
+    window_seconds: int,
+) -> tuple[bool, int]:
+    """Per-IP, per-action fixed-window quota.
+
+    Returns (allowed, retry_after_seconds). When allowed, the counter is
+    incremented as a side effect. Setting max_per_window <= 0 disables the
+    quota (returns allowed without touching Redis).
+    """
+    if max_per_window <= 0:
+        return True, 0
+    r = await get_redis()
+    key = f"actionlimit:{action}:{ip}"
+    count = await r.incr(key)
+    if count == 1:
+        await r.expire(key, window_seconds)
+    if count > max_per_window:
+        ttl = await r.ttl(key)
+        return False, max(1, ttl)
+    return True, 0

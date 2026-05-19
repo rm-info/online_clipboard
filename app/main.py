@@ -44,6 +44,8 @@ import session as sess
 import security as sec
 from config import (
     APP_VERSION,
+    CREATE_RATE_LIMIT_MAX,
+    CREATE_RATE_LIMIT_WINDOW_SECONDS,
     DEBUG,
     FILE_MAX_SIZE_BYTES,
     HEALTHZ_WARN_RATIO,
@@ -51,6 +53,8 @@ from config import (
     SESSION_TTL_SECONDS,
     SSE_ENABLED,
     TOTAL_FILE_MAX_BYTES,
+    UPLOAD_RATE_LIMIT_MAX,
+    UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
 )
 from i18n import DEFAULT_LANGUAGE, LANG_COOKIE, SUPPORTED_LANGUAGES, get_translations, normalize_language
 
@@ -262,6 +266,16 @@ async def create_session(
     if banned:
         raise HTTPException(status_code=429, detail=f"IP {ban_type}-banned.")
 
+    allowed, retry_after = await sec.check_action_quota(
+        ip, "create", CREATE_RATE_LIMIT_MAX, CREATE_RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many sessions created from this IP. Try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     text = text.strip()
     if not text:
         raise HTTPException(status_code=422, detail="Text cannot be empty.")
@@ -461,6 +475,17 @@ async def upload_file(
         raise HTTPException(status_code=404, detail="Session expired.")
     if not file.filename:
         raise HTTPException(status_code=422, detail="Filename is required.")
+
+    ip = get_client_ip(request)
+    allowed, retry_after = await sec.check_action_quota(
+        ip, "upload", UPLOAD_RATE_LIMIT_MAX, UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Upload rate limit exceeded for this IP. Try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
 
     payload = await _read_upload_bytes(file)
     password = _get_password(request, sid)
