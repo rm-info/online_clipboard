@@ -247,11 +247,15 @@
         <span class="url-text" id="sessionUrl"></span>
         <div class="topline-actions">
           <button class="icon-btn" id="qrBtn" type="button" aria-label="{{ tr.qr_button_label }}" aria-haspopup="dialog" aria-controls="qrModal" title="{{ tr.qr_button_label }}">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <rect x="3" y="3" width="6" height="6"/>
-              <rect x="15" y="3" width="6" height="6"/>
-              <rect x="3" y="15" width="6" height="6"/>
-              <path d="M14 14h3v3h-3zM19 14h2M14 19h3v2"/>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M17 12v4a1 1 0 0 1-1 1h-4"/>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+              <path d="M17 8V7"/>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+              <path d="M7 17h.01"/>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+              <rect x="7" y="7" width="5" height="5" rx="1"/>
             </svg>
           </button>
           <button class="icon-btn" id="copyUrlBtn" type="button" onclick="copyUrl()" title="{{ tr['copy'] }}">{{ icon_copy() }}{{ icon_check() }}</button>
@@ -381,7 +385,7 @@
   // Lucide icons (MIT, https://lucide.dev) — self-hosted, inlined for styling
   // via currentColor. .entry-icon (14px) sizes the entry-badge icons;
   // .icon (16px) sizes the action button icons.
-  const ICON_TEXT = '<svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>';
+  const ICON_TEXT = '<svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9.5 8h5"/><path d="M9.5 12H16"/><path d="M9.5 16H14"/></svg>';
   const ICON_FILE = '<svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>';
   const ICON_COPY = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
   const ICON_CHECK = '<svg class="icon icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
@@ -427,20 +431,9 @@
   }
 
   function timelineIcon(type) {
-    if (type === 'text') {
-      return `
-        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path d="M3 4.25h10M3 8h10M3 11.75h6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-        </svg>
-      `;
-    }
-
-    return `
-      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path d="M5 2.75h4.6L12.25 5.4V13a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1V3.75a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-        <path d="M9.5 2.9V5.5h2.6" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-      </svg>
-    `;
+    // Reuse the same Lucide icons as the entry badges so the timeline
+    // visually mirrors the cards it links to.
+    return type === 'text' ? ICON_TEXT : ICON_FILE;
   }
 
   function updateTTL() {
