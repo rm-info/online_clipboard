@@ -358,6 +358,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      min-width: 0;
       padding: 10px 12px;
       background: rgba(21, 241, 141, 0.08);
       border: 1px solid rgba(21, 241, 141, 0.26);
@@ -370,9 +371,16 @@
       color: var(--fg);
       font-family: var(--mono);
       font-size: .88rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      overflow-wrap: anywhere;
+    }
+    .url-box .icon-btn {
+      border-color: rgba(21, 241, 141, 0.24);
+      color: var(--fg);
+    }
+    .url-box .icon-btn:hover,
+    .url-box .icon-btn:focus-visible {
+      border-color: var(--accent);
+      color: var(--accent);
     }
 
     .ttl-label {
