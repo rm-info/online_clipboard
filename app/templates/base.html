@@ -464,12 +464,13 @@
           <a class="lang-link{% if code == lang %} active{% endif %}" href="?lang={{ code }}">{{ tr["lang_" + code] }}</a>
           {% endfor %}
         </nav>
+        {% block header_extras %}{% endblock %}
       </div>
     </header>
 
     {% block content %}{% endblock %}
 
-    <footer>{{ tr.footer_credit }} · v{{ app_version }}</footer>
+    <footer>v{{ app_version }}</footer>
   </div>
 </body>
 </html>

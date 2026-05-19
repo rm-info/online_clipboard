@@ -3,8 +3,122 @@
 {% block header_title %}{{ tr.new_session_title }}{% endblock %}
 {% block header_sub %}<div class="header-sub">{{ tr.new_session_subtitle }}</div>{% endblock %}
 
+{% block extra_head %}
+<style>
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, .8fr);
+    gap: 18px;
+  }
+  .how-info-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--fg-muted);
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .how-info-btn:hover,
+  .how-info-btn:focus-visible {
+    color: var(--accent);
+    border-color: var(--accent);
+    outline: none;
+    background: rgba(21, 241, 141, 0.06);
+  }
+  .how-info-btn svg { display: block; }
+
+  .modal-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 14px;
+    background: rgba(5, 8, 11, 0.72);
+    backdrop-filter: blur(4px);
+    overflow-y: auto;
+  }
+  .modal-scrim.open { display: flex; }
+  .modal-card {
+    width: 100%;
+    max-width: 520px;
+    margin: auto 0;
+    background: linear-gradient(180deg, rgba(23, 30, 37, 0.98), rgba(17, 22, 27, 0.98));
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .modal-title {
+    margin: 0;
+    color: var(--fg-muted);
+    font-family: var(--mono);
+    font-size: .76rem;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .modal-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--fg-dim);
+    font-family: var(--mono);
+    font-size: .75rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .modal-close:hover,
+  .modal-close:focus-visible {
+    color: var(--accent);
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  @media (max-width: 720px) {
+    .home-grid { grid-template-columns: 1fr; }
+    .how-panel { display: none; }
+    .how-info-btn { display: inline-flex; }
+  }
+</style>
+{% endblock %}
+
+{% block header_extras %}
+<button type="button" class="how-info-btn" id="howInfoBtn"
+        aria-label="{{ tr.how_it_works }}" aria-haspopup="dialog" aria-controls="howModal">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9"/>
+    <line x1="12" y1="11" x2="12" y2="16.5"/>
+    <circle cx="12" cy="8" r=".6" fill="currentColor" stroke="none"/>
+  </svg>
+</button>
+{% endblock %}
+
 {% block content %}
-<div style="display:grid; grid-template-columns:minmax(0,1.35fr) minmax(320px,.8fr); gap:18px;">
+<div class="home-grid">
   <form method="POST" action="/" id="createForm" class="panel" style="margin:0;">
     <div class="panel-label">{{ tr.content }}</div>
 
@@ -37,8 +151,26 @@
     </div>
   </form>
 
-  <div class="panel">
+  <div class="panel how-panel">
     <div class="panel-label">{{ tr.how_it_works }}</div>
+    <div style="display:grid; gap:14px;">
+      <div class="item-card"><strong>01</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_1 }}</div></div>
+      <div class="item-card"><strong>02</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_2 }}</div></div>
+      <div class="item-card"><strong>03</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_3 }}</div></div>
+      <div class="item-card"><strong>04</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_4 }}</div></div>
+    </div>
+    <div class="sep"></div>
+    <div class="muted">{{ tr.files_added_after_create }}</div>
+  </div>
+</div>
+
+<div class="modal-scrim" id="howModal" role="dialog" aria-modal="true"
+     aria-labelledby="howModalTitle" aria-hidden="true">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 class="modal-title" id="howModalTitle">{{ tr.how_it_works }}</h2>
+      <button type="button" class="modal-close" id="howModalClose">{{ tr.close }}</button>
+    </div>
     <div style="display:grid; gap:14px;">
       <div class="item-card"><strong>01</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_1 }}</div></div>
       <div class="item-card"><strong>02</strong><div class="muted" style="margin-top:6px;">{{ tr.how_step_2 }}</div></div>
@@ -80,5 +212,33 @@
     btn.disabled = true;
     btn.textContent = tr.creating;
   });
+
+  (() => {
+    const btn = document.getElementById('howInfoBtn');
+    const modal = document.getElementById('howModal');
+    const closeBtn = document.getElementById('howModalClose');
+    let lastFocus = null;
+
+    function open() {
+      lastFocus = document.activeElement;
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      closeBtn.focus();
+    }
+    function close() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      if (lastFocus) lastFocus.focus();
+    }
+
+    btn.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('open')) close();
+    });
+  })();
 </script>
 {% endblock %}
