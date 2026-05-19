@@ -377,7 +377,20 @@
   let sessionAlive = true;
   let activeEntryId = null;
 
-  document.getElementById('sessionUrl').textContent = sessionUrl;
+  function truncateUrl(url) {
+    // Display "scheme://host[...]suffix": enough of the scheme+host to be
+    // recognizable, plus the tail of the session ID for visual confirmation.
+    // Sized to fit on narrow phone viewports (~25 chars visible at .88rem
+    // mono in the url-box); the CSS ellipsis catches any residual overflow.
+    const MAX_LEN = 27;
+    if (url.length <= MAX_LEN) return url;
+    const ELLIPSIS = '[...]';
+    const head = 17;
+    const tail = MAX_LEN - ELLIPSIS.length - head;
+    return url.slice(0, head) + ELLIPSIS + url.slice(-tail);
+  }
+
+  document.getElementById('sessionUrl').textContent = truncateUrl(sessionUrl);
 
   function formatSize(bytes) {
     if (bytes === 0) return '0 B';
