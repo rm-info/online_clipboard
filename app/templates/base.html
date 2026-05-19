@@ -357,14 +357,33 @@
       color: var(--fg);
       border-color: var(--border-hi);
     }
-    /* Variant: persistent info-blue tint (used by the privacy button so
-       its purpose reads at a glance without competing with --warn alerts). */
-    .icon-btn.icon-btn-info { color: var(--info); }
-    .icon-btn.icon-btn-info:hover,
-    .icon-btn.icon-btn-info:focus-visible {
+    /* Standalone info-blue circular button — shared by the privacy entry in
+       the header and by .how-info-btn (the mobile-only "how it works"
+       trigger on the home page). Visually a true 38x38 circle with a
+       slightly tinted background, distinct from the neutral .icon-btn. */
+    .icon-btn-info {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 1px solid rgba(108, 184, 255, 0.35);
+      border-radius: 999px;
+      background: rgba(108, 184, 255, 0.06);
       color: var(--info);
-      border-color: var(--info);
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: color .15s, border-color .15s, background .15s;
     }
+    .icon-btn-info:hover,
+    .icon-btn-info:focus-visible {
+      color: #b5dbff;
+      border-color: var(--info);
+      outline: none;
+      background: rgba(108, 184, 255, 0.14);
+    }
+    .icon-btn-info svg { display: block; width: 20px; height: 20px; }
     .btn-danger {
       color: var(--danger);
       background: rgba(255, 92, 114, 0.08);
@@ -677,7 +696,7 @@
           <a class="lang-link{% if code == lang %} active{% endif %}" href="?lang={{ code }}">{{ tr["lang_" + code] }}</a>
           {% endfor %}
         </nav>
-        <button class="icon-btn icon-btn-info" type="button" id="privacyBtn"
+        <button class="icon-btn-info" type="button" id="privacyBtn"
                 title="{{ tr.privacy_button_label }}"
                 aria-label="{{ tr.privacy_button_label }}">
           {{ icon_cookie() }}

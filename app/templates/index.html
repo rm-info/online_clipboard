@@ -10,29 +10,9 @@
     grid-template-columns: minmax(0, 1.35fr) minmax(320px, .8fr);
     gap: 18px;
   }
-  .how-info-btn {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    padding: 0;
-    border: 1px solid rgba(108, 184, 255, 0.35);
-    border-radius: 999px;
-    background: rgba(108, 184, 255, 0.06);
-    color: var(--info);
-    cursor: pointer;
-    box-shadow: var(--shadow);
-    transition: color .15s, border-color .15s, background .15s;
-  }
-  .how-info-btn:hover,
-  .how-info-btn:focus-visible {
-    color: #b5dbff;
-    border-color: var(--info);
-    outline: none;
-    background: rgba(108, 184, 255, 0.14);
-  }
-  .how-info-btn svg { display: block; }
+  /* Appearance is shared via .icon-btn-info (in base.html); this rule only
+     handles the desktop/mobile visibility toggle for the home page. */
+  .how-info-btn { display: none; }
 
   @media (max-width: 720px) {
     .home-grid { grid-template-columns: 1fr; }
@@ -43,9 +23,9 @@
 {% endblock %}
 
 {% block header_extras %}
-<button type="button" class="how-info-btn" id="howInfoBtn"
+<button type="button" class="how-info-btn icon-btn-info" id="howInfoBtn"
         aria-label="{{ tr.how_it_works }}" aria-haspopup="dialog" aria-controls="howModal">
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
     <line x1="12" x2="12" y1="16" y2="12"/>
