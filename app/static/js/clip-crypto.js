@@ -70,8 +70,14 @@
   async function deriveKey(password, saltB64) {
     const salt = b64decode(saltB64);
     if (salt.length < 8) throw new Error('Salt too short.');
+    // hash-wasm rejects empty passwords with "Password must be specified".
+    // For passwordless sessions we substitute a fixed sentinel byte so a
+    // key still gets derived from the salt; anyone who has the session URL
+    // can deterministically reach the same key, which matches the v1
+    // "URL = secret" threat model for sessions without a password.
+    const effectivePassword = password.length > 0 ? password : '\x00';
     const rawHex = await window.hashwasm.argon2id({
-      password: password,
+      password: effectivePassword,
       salt: salt,
       parallelism: ARGON2_PARALLELISM,
       iterations: ARGON2_ITERATIONS,
