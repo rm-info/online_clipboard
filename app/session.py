@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import AsyncIterator, Optional
 
 import redis.asyncio as aioredis
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +284,108 @@ def _generate_thumbnail_sync(image_bytes: bytes) -> Optional[bytes]:
             img.save(out, format="JPEG", quality=_THUMB_QUALITY, optimize=True)
             return out.getvalue()
     except (UnidentifiedImageError, OSError, ValueError):
+        return None
+
+
+# Extensions we treat as text-flavored for preview purposes. The list is
+# liberal on purpose — anything that's likely UTF-8 should render fine.
+_TEXT_EXTENSIONS = {
+    "txt", "md", "log", "csv", "tsv", "rst", "adoc",
+    "json", "yaml", "yml", "toml", "ini", "conf", "cfg", "env",
+    "xml", "html", "htm", "css", "scss", "sass",
+    "js", "ts", "tsx", "jsx", "mjs",
+    "py", "rb", "go", "rs", "java", "kt", "swift",
+    "c", "h", "cpp", "hpp", "cc", "cs",
+    "sh", "bash", "zsh", "fish", "ps1",
+    "sql", "tex", "diff", "patch",
+}
+
+_TEXT_THUMB_WIDTH = 320
+_TEXT_THUMB_HEIGHT = 240
+_TEXT_THUMB_BG = (17, 22, 27)
+_TEXT_THUMB_FG = (201, 214, 226)
+_TEXT_THUMB_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+_TEXT_THUMB_FONT_SIZE = 11
+_TEXT_THUMB_LINE_HEIGHT = 14
+_TEXT_THUMB_MAX_LINES = 16
+_TEXT_THUMB_MAX_CHARS_PER_LINE = 46
+
+
+def _is_pdf_filename(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[-1].lower() == "pdf"
+
+
+def _is_text_filename(filename: str) -> bool:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return ext in _TEXT_EXTENSIONS
+
+
+def _looks_like_text_payload(data: bytes, head: int = 4096) -> bool:
+    """Best-effort sniff: returns True if the first chunk decodes as UTF-8 and
+    isn't dominated by control bytes (which would indicate binary masquerading
+    as text). Used as a fallback when the extension isn't in the whitelist.
+    """
+    sample = data[:head]
+    if not sample:
+        return False
+    try:
+        decoded = sample.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    if not decoded:
+        return False
+    control = sum(1 for c in decoded if c < " " and c not in "\t\n\r")
+    return (control / len(decoded)) < 0.05
+
+
+def _generate_pdf_thumbnail_sync(pdf_bytes: bytes) -> Optional[bytes]:
+    """Render the first page of a PDF to a JPEG thumbnail. The page is
+    rasterized at 2x then run through the existing image-thumbnail pipeline,
+    which gives a sharp result after the downscale to _THUMB_MAX_SIZE.
+    """
+    try:
+        import fitz  # PyMuPDF — wheel-only, no system deps
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            if doc.page_count == 0:
+                return None
+            page = doc[0]
+            pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=False)
+            png_bytes = pix.tobytes("png")
+        return _generate_thumbnail_sync(png_bytes)
+    except Exception:
+        return None
+
+
+def _generate_text_thumbnail_sync(text_bytes: bytes) -> Optional[bytes]:
+    """Render the first ~16 lines of a text payload onto a fixed-size canvas
+    and save as JPEG. Best-effort: any failure returns None and the upload
+    proceeds without a thumb.
+    """
+    try:
+        text = text_bytes[:16384].decode("utf-8", errors="replace")
+        lines = []
+        for raw in text.splitlines():
+            squashed = raw.expandtabs(2)[:_TEXT_THUMB_MAX_CHARS_PER_LINE]
+            lines.append(squashed)
+            if len(lines) >= _TEXT_THUMB_MAX_LINES:
+                break
+
+        img = Image.new("RGB", (_TEXT_THUMB_WIDTH, _TEXT_THUMB_HEIGHT), _TEXT_THUMB_BG)
+        draw = ImageDraw.Draw(img)
+        try:
+            font = ImageFont.truetype(_TEXT_THUMB_FONT_PATH, _TEXT_THUMB_FONT_SIZE)
+        except (OSError, IOError):
+            font = ImageFont.load_default()
+
+        y = 8
+        for line in lines:
+            draw.text((10, y), line, font=font, fill=_TEXT_THUMB_FG)
+            y += _TEXT_THUMB_LINE_HEIGHT
+
+        out = BytesIO()
+        img.save(out, format="JPEG", quality=80, optimize=True)
+        return out.getvalue()
+    except Exception:
         return None
 
 
@@ -567,10 +669,17 @@ async def save_file(sid: str, filename: str, data: bytes, key: bytes) -> dict:
     cleanup_expired_upload_dirs()
 
     # Generate the thumbnail before encrypting anything else. Done off the
-    # event loop because Pillow is sync and may take 100ms+ on a large image.
+    # event loop because Pillow/PyMuPDF are sync and may take 100ms+ on a
+    # large input. Dispatch by extension first, then sniff payload as a
+    # fallback so misnamed text files (.csv with no extension, etc.) still
+    # get a preview.
     thumb_plain: Optional[bytes] = None
     if _is_image_filename(filename):
         thumb_plain = await asyncio.to_thread(_generate_thumbnail_sync, data)
+    elif _is_pdf_filename(filename):
+        thumb_plain = await asyncio.to_thread(_generate_pdf_thumbnail_sync, data)
+    elif _is_text_filename(filename) or _looks_like_text_payload(data):
+        thumb_plain = await asyncio.to_thread(_generate_text_thumbnail_sync, data)
 
     encrypted = encrypt_bytes(data, key)
     thumb_encrypted: Optional[bytes] = encrypt_bytes(thumb_plain, key) if thumb_plain else None
