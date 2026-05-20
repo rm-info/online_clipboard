@@ -21,6 +21,36 @@ A **QR-code button** next to the session URL opens a scannable modal — handy f
 
 ---
 
+## Per-message and per-file controls
+
+- **Secret mode** — opt-in per text item, toggled next to the message input.
+  Masks both typing (`-webkit-text-security: disc`, Chromium-based browsers
+  only) and the rendered card (`••••••`) with a one-click reveal. The
+  content is still encrypted at rest like everything else; secret mode is
+  shoulder-surfing protection, not additional cryptography.
+- **Individual delete** — each text item and each file has a trash button.
+  Removes only that entry; the rest of the session continues. Files also
+  remove their on-disk encrypted blob and any thumbnail.
+- **Inline previews** — at upload time the server generates a thumbnail
+  (JPEG, 240px max bound) for supported formats and stores it encrypted
+  alongside the file:
+  - **Images**: jpg, jpeg, png, gif, webp, bmp, tif, tiff, ico
+  - **PDF**: first page rendered via PyMuPDF
+  - **Text and code**: txt, md, csv, json, yaml, toml, html, css, js, ts,
+    py, rs, go, sh, sql, … plus a UTF-8 + low control-char content sniff
+    for files without (or with misleading) extensions. The first ~16 lines
+    are drawn onto a 320×240 canvas in DejaVu Sans Mono.
+  Office formats (Word / Excel / PowerPoint) intentionally not covered —
+  they require shipping LibreOffice in the container (~400 MB image).
+  Thumbnail fetch goes through `/{sid}/files/{id}/thumb` and inherits the
+  same auth gate as the file download.
+- **Header modals** — an info button opens the *About* card (app version,
+  source link), and a cookie button opens the *Privacy & cookies* card
+  detailing every cookie, what's encrypted, the trust boundaries, and the
+  retention window.
+
+---
+
 ## Security model
 
 | Layer | Mechanism |
@@ -187,7 +217,7 @@ clipboard.your.domain {
 | `CREATE_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the create quota (1 hour) |
 | `UPLOAD_RATE_LIMIT_MAX` | `60` | Per-IP uploads allowed in `UPLOAD_RATE_LIMIT_WINDOW_SECONDS`. Set ≤ 0 to disable. |
 | `UPLOAD_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the upload quota (1 hour) |
-| `APP_VERSION` | `1.3.2` | Version displayed in the footer |
+| `APP_VERSION` | `1.4.0` | Version displayed in the footer |
 | `DEBUG` | `false` | Enable FastAPI debug mode and `/docs` endpoint |
 
 ---
@@ -268,7 +298,7 @@ healthcheck.io, k8s probes, etc.):
   "disk_cap_bytes": 10737418240,
   "disk_ratio": 0.0,
   "warn_ratio": 0.8,
-  "version": "1.3.2"
+  "version": "1.4.0"
 }
 ```
 
