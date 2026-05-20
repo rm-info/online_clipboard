@@ -42,6 +42,17 @@
       <textarea name="text" id="text" placeholder="{{ tr.paste_placeholder }}" required autofocus></textarea>
     </div>
 
+    {# Secret mode lives with the textarea it controls — same grouping as the
+       add-message form in session.html. Toggling it masks the typed content
+       and tags the entry as secret in storage. #}
+    <div class="toggle-row" title="{{ tr.secret_mode_hint }}">
+      <label class="switch">
+        <input type="checkbox" name="secret" id="secret" value="true">
+        <span class="switch-track"></span>
+      </label>
+      <label class="toggle-label" for="secret">{{ tr.secret_mode }}</label>
+    </div>
+
     <div class="field">
       <label for="password">{{ tr.password }} <span class="muted">({{ tr.password_optional }})</span></label>
       <input type="password" name="password" id="password" placeholder="{{ tr.password_placeholder }}" maxlength="50" autocomplete="new-password">
@@ -56,14 +67,6 @@
       </label>
       <label class="toggle-label" for="secure_mode">{{ tr.extended_session_id }}</label>
       <span class="toggle-hint" id="secureHint">{{ tr.short_id_hint }}</span>
-    </div>
-
-    <div class="toggle-row" title="{{ tr.secret_mode_hint }}">
-      <label class="switch">
-        <input type="checkbox" name="secret" id="secret" value="true">
-        <span class="switch-track"></span>
-      </label>
-      <label class="toggle-label" for="secret">{{ tr.secret_mode }}</label>
     </div>
 
     <div id="createStatus" class="muted" style="margin: 6px 0 10px; min-height: 1.2em; font-size: .88rem;"></div>
