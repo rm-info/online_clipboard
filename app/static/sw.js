@@ -31,6 +31,8 @@ const PRECACHE = [
   '/static/js/clip-keystore.js',
   '/static/qrcode.min.js',
   '/static/logo.png',
+  '/static/logo-192.png',
+  '/static/logo-512.png',
   '/static/fonts/plex-mono-400.woff2',
   '/static/fonts/plex-mono-500.woff2',
   '/static/fonts/plex-mono-600.woff2',
