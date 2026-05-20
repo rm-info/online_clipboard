@@ -30,12 +30,17 @@
 {%- macro icon_eye_off() -%}
 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
 {%- endmacro -%}
+{%- macro icon_info() -%}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+{%- endmacro -%}
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Clipboard{% endblock %}</title>
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link rel="apple-touch-icon" href="/static/logo.png">
   <style>
     /* IBM Plex (Mono + Sans) — self-hosted, latin subset only.
        OFL 1.1 + Apache 2.0, https://github.com/IBM/plex */
@@ -678,6 +683,47 @@
       color: var(--fg);
     }
 
+    /* About modal — centered layout with the logo at the top. */
+    .about-body { text-align: center; }
+    .about-body .about-logo {
+      display: block;
+      margin: 0 auto 10px;
+      width: 96px;
+      height: 96px;
+    }
+    .about-body .about-app-name {
+      margin: 0 0 4px;
+      color: var(--fg);
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -.01em;
+    }
+    .about-body .about-version {
+      margin: 0 0 16px;
+      font-family: var(--mono);
+      font-size: .78rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .about-body p {
+      margin: 8px 0;
+      color: var(--fg-dim);
+      font-size: .92rem;
+      line-height: 1.6;
+    }
+    .about-body .about-source {
+      color: var(--info);
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(108, 184, 255, 0.5);
+      padding-bottom: 1px;
+    }
+    .about-body .about-source:hover,
+    .about-body .about-source:focus-visible {
+      color: #b5dbff;
+      border-bottom-color: #b5dbff;
+      outline: none;
+    }
+
     @media (max-width: 1100px) {
       .shell { width: min(100vw - 14px, 1180px); }
       .header {
@@ -720,6 +766,12 @@
           <a class="lang-link{% if code == lang %} active{% endif %}" href="?lang={{ code }}">{{ tr["lang_" + code] }}</a>
           {% endfor %}
         </nav>
+        <button class="icon-btn-info" type="button" id="aboutBtn"
+                onclick="openAboutModal()"
+                title="{{ tr.about }}"
+                aria-label="{{ tr.about }}">
+          {{ icon_info() }}
+        </button>
         <button class="icon-btn-info" type="button" id="siteInfoBtn"
                 onclick="openSiteInfoModal()"
                 title="{{ tr.privacy_button_label }}"
@@ -733,6 +785,24 @@
     {% block content %}{% endblock %}
 
     <footer>v{{ app_version }}</footer>
+  </div>
+
+  <div class="modal-scrim" id="aboutOverlay" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <p class="modal-title" id="aboutTitle">{{ tr.about }}</p>
+        <button class="icon-btn modal-close" type="button" id="aboutClose" onclick="closeAboutModal()" title="{{ tr.close }}" aria-label="{{ tr.close }}">{{ icon_x() }}</button>
+      </div>
+      <div class="about-body">
+        <img class="about-logo" src="/static/logo.png" alt="" loading="lazy">
+        <h3 class="about-app-name">{{ tr.app_name }}</h3>
+        <p class="about-version muted">v{{ app_version }}</p>
+        <p>{{ tr.about_tagline }}</p>
+        <p>
+          <a class="about-source" href="https://github.com/rm-info/online_clipboard" target="_blank" rel="noopener noreferrer">{{ tr.about_source_label }}</a>
+        </p>
+      </div>
+    </div>
   </div>
 
   <div class="modal-scrim" id="siteInfoOverlay" role="dialog" aria-modal="true" aria-labelledby="siteInfoTitle">
@@ -790,6 +860,21 @@
       if (!overlay) return;
       overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closeSiteInfoModal(); });
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) window.closeSiteInfoModal(); });
+    })();
+
+    window.openAboutModal = function openAboutModal() {
+      const o = document.getElementById('aboutOverlay');
+      if (o) o.classList.add('open');
+    };
+    window.closeAboutModal = function closeAboutModal() {
+      const o = document.getElementById('aboutOverlay');
+      if (o) o.classList.remove('open');
+    };
+    (() => {
+      const overlay = document.getElementById('aboutOverlay');
+      if (!overlay) return;
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closeAboutModal(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) window.closeAboutModal(); });
     })();
   </script>
 </body>

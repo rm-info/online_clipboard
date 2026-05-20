@@ -141,6 +141,9 @@ TRANSLATIONS = {
         "secret_mask_note": "Input masking uses -webkit-text-security; on Firefox the typed text stays visible (display masking still works).",
         "reveal": "Reveal",
         "hide": "Hide",
+        "about": "About",
+        "about_tagline": "Ephemeral, encrypted clipboard for sharing text and files between machines. Self-hosted, 2-hour sliding TTL, AES-256-GCM at rest.",
+        "about_source_label": "Source code on GitHub",
     },
     "fr": {
         "app_name": "presse-papiers en ligne",
@@ -275,6 +278,9 @@ TRANSLATIONS = {
         "secret_mask_note": "Le masquage de la saisie utilise -webkit-text-security ; sur Firefox le texte tapé reste visible (le masquage à l’affichage marche quand même).",
         "reveal": "Afficher",
         "hide": "Masquer",
+        "about": "À propos",
+        "about_tagline": "Presse-papiers éphémère et chiffré pour partager du texte et des fichiers entre machines. Auto-hébergé, TTL glissant de 2 h, AES-256-GCM au repos.",
+        "about_source_label": "Code source sur GitHub",
     },
 }
 
