@@ -75,7 +75,7 @@ WRITE_RATE_LIMIT_WINDOW_SECONDS: int = int(
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-APP_VERSION: str = os.environ.get("APP_VERSION", "2.1.1")
+APP_VERSION: str = os.environ.get("APP_VERSION", "2.1.2")
 # Short git commit injected at docker build time via APP_COMMIT build arg.
 # Empty in dev builds. Shown in the About modal and used as the PWA cache buster.
 APP_COMMIT: str = os.environ.get("APP_COMMIT", "")
