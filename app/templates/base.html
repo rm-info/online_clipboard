@@ -753,11 +753,15 @@
       .icon-btn { width: 38px; }
     }
   </style>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#15f18d">
   {# Load crypto vendor + wrappers in <head> so any in-page script can call
-     ClipCrypto / ClipKeystore unconditionally — no async-load gymnastics. #}
-  <script src="/static/js/vendor/hash-wasm.umd.min.js" defer></script>
-  <script src="/static/js/clip-crypto.js" defer></script>
-  <script src="/static/js/clip-keystore.js" defer></script>
+     ClipCrypto / ClipKeystore unconditionally — no async-load gymnastics.
+     integrity= pins the exact bytes; if the served file ever drifts from
+     the on-disk build, the browser refuses to execute it. #}
+  <script src="/static/js/vendor/hash-wasm.umd.min.js" integrity="{{ sri.hash_wasm }}" defer></script>
+  <script src="/static/js/clip-crypto.js"               integrity="{{ sri.clip_crypto }}" defer></script>
+  <script src="/static/js/clip-keystore.js"             integrity="{{ sri.clip_keystore }}" defer></script>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -804,7 +808,14 @@
       <div class="about-body">
         <img class="about-logo" src="/static/logo.png" alt="" loading="lazy">
         <h3 class="about-app-name">{{ tr.app_name }}</h3>
-        <p class="about-version muted">v{{ app_version }}</p>
+        {# Commit hash is shown when present so users can compare what's
+           actually deployed against the public source. Click-through opens
+           the commit on GitHub. Empty in dev builds (no APP_COMMIT set). #}
+        <p class="about-version muted">
+          v{{ app_version }}{% if app_commit %} ·
+          <a class="about-source" href="https://github.com/rm-info/online_clipboard/commit/{{ app_commit }}" target="_blank" rel="noopener noreferrer">build {{ app_commit }}</a>
+          {% endif %}
+        </p>
         <p>{{ tr.about_tagline }}</p>
         <p>
           <a class="about-source" href="https://github.com/rm-info/online_clipboard" target="_blank" rel="noopener noreferrer">{{ tr.about_source_label }}</a>
@@ -844,6 +855,9 @@
 
         <h4>{{ tr.privacy_password_loss_heading }}</h4>
         <p>{{ tr.privacy_password_loss_text }}</p>
+
+        <h4>{{ tr.privacy_extra_hygiene_heading }}</h4>
+        <p>{{ tr.privacy_extra_hygiene_text }}</p>
 
         <h4>{{ tr.privacy_not_doing_heading }}</h4>
         <p>{{ tr.privacy_not_doing_text }}</p>
@@ -889,6 +903,17 @@
       overlay.addEventListener('click', (e) => { if (e.target === overlay) window.closeAboutModal(); });
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) window.closeAboutModal(); });
     })();
+
+    // PWA: register the service worker with a build-id query string so each
+    // new deploy is registered as a distinct SW URL → fresh install + cache.
+    // Failures are non-fatal — the site works without the SW, you just lose
+    // offline + the "pinned bundle" benefit.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js?v={{ app_build_id | urlencode }}', { scope: '/' })
+          .catch((err) => { console.warn('[sw] registration failed:', err); });
+      });
+    }
   </script>
 </body>
 </html>

@@ -34,9 +34,11 @@ much a single browser session can spam.
 
 import asyncio
 import base64
+import hashlib
 import time
 from contextlib import asynccontextmanager
 from io import BytesIO
+from pathlib import Path
 from typing import Annotated, Optional
 
 from fastapi import (
@@ -49,7 +51,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -58,6 +60,8 @@ import security as sec
 import session as sess
 import tokens as tok
 from config import (
+    APP_BUILD_ID,
+    APP_COMMIT,
     APP_VERSION,
     DEBUG,
     FILE_MAX_SIZE_BYTES,
@@ -99,9 +103,39 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-templates.env.globals["app_version"] = APP_VERSION
-templates.env.globals["sse_enabled"] = SSE_ENABLED
+
+
+# ---------------------------------------------------------------------------
+# Subresource Integrity (SRI) hashes
+# ---------------------------------------------------------------------------
+# Computed once at startup from the files actually on disk inside the
+# container. Means base.html declares an integrity= attribute on each
+# crypto script tag, and the browser refuses to execute if a CDN or proxy
+# silently swapped the file mid-flight. Doesn't protect against the
+# operator swapping both the script AND the index page in lockstep, but
+# closes the partial-compromise window.
+
+_STATIC = Path("static")
+
+
+def _sri_sha384(path: Path) -> str:
+    digest = hashlib.sha384(path.read_bytes()).digest()
+    return "sha384-" + base64.b64encode(digest).decode("ascii")
+
+
+SRI_HASHES = {
+    "hash_wasm":     _sri_sha384(_STATIC / "js" / "vendor" / "hash-wasm.umd.min.js"),
+    "clip_crypto":   _sri_sha384(_STATIC / "js" / "clip-crypto.js"),
+    "clip_keystore": _sri_sha384(_STATIC / "js" / "clip-keystore.js"),
+}
+
+
+templates.env.globals["app_version"]   = APP_VERSION
+templates.env.globals["app_commit"]    = APP_COMMIT
+templates.env.globals["app_build_id"]  = APP_BUILD_ID
+templates.env.globals["sse_enabled"]   = SSE_ENABLED
 templates.env.globals["pow_difficulty"] = POW_DIFFICULTY_BITS
+templates.env.globals["sri"]           = SRI_HASHES
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +267,37 @@ async def _read_upload_bytes(upload: UploadFile, *, allow_empty: bool = False) -
         raise HTTPException(status_code=422, detail="File cannot be empty.")
 
     return b"".join(chunks)
+
+
+# ---------------------------------------------------------------------------
+# PWA: service worker + manifest
+# ---------------------------------------------------------------------------
+# The service worker must be served from the origin root for its default
+# scope to cover the whole site. Mounting it under /static would limit it
+# to /static/* which is useless for HTML caching/install. The explicit
+# Service-Worker-Allowed header is required because the script *lives* at
+# /static/sw.js on disk but the registered URL is /sw.js — without the
+# header browsers reject scope expansion to "/".
+
+@app.get("/sw.js")
+async def service_worker():
+    return FileResponse(
+        "static/sw.js",
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "no-cache",  # Always re-fetch — registration query string busts the cache
+            "Service-Worker-Allowed": "/",
+        },
+    )
+
+
+@app.get("/manifest.webmanifest")
+async def manifest():
+    return FileResponse(
+        "static/manifest.json",
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 # ---------------------------------------------------------------------------

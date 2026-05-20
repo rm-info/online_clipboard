@@ -75,7 +75,11 @@ WRITE_RATE_LIMIT_WINDOW_SECONDS: int = int(
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-APP_VERSION: str = os.environ.get("APP_VERSION", "2.0.0")
+APP_VERSION: str = os.environ.get("APP_VERSION", "2.1.0")
+# Short git commit injected at docker build time via APP_COMMIT build arg.
+# Empty in dev builds. Shown in the About modal and used as the PWA cache buster.
+APP_COMMIT: str = os.environ.get("APP_COMMIT", "")
+APP_BUILD_ID: str = f"{APP_VERSION}+{APP_COMMIT}" if APP_COMMIT else APP_VERSION
 
 # SSE (Server-Sent Events) for real-time sync.
 # Set to false on shared hosting (Passenger queue saturation).

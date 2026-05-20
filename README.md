@@ -9,6 +9,21 @@ messages, files, filenames, or thumbnails. There is no IP tracking — anti-abus
 plus per-token quotas. Lose the password and the data is irrecoverable; the operator cannot
 reset what they cannot read.
 
+**v2.1.0 closes the served-JS gap** with three defence-in-depth additions:
+
+- **Subresource Integrity** on every crypto script (`integrity="sha384-…"`). The browser
+  refuses to execute any of the crypto bundle if its bytes drift from what the server
+  intended at build time.
+- **Commit hash in the About modal** linking to the GitHub commit, so users can compare
+  what's deployed against the published source.
+- **Installable PWA** with a service worker that pins the static crypto bundle to the
+  user's local cache. Once installed, the JS the browser runs is the one the user
+  accepted at install time — the per-visit "trust the server's freshly-served JS"
+  window shrinks to the explicit update step.
+
+A "private/incognito + install as app" bullet in the Privacy modal makes the optional
+extra hygiene explicit.
+
 ---
 
 ## How it works
@@ -75,6 +90,7 @@ to a phone without typing the link.
 | IP tracking | None. The server logs no IPs and uses no IP-based controls. |
 | Authorization cookie | `clip_token_{sid}` — HMAC-signed write token bound to the session ID. Contains no key material. |
 | Key storage (client) | Raw key held in `sessionStorage` for the tab's lifetime; cleared on tab close. |
+| Code delivery (v2.1) | Subresource Integrity (sha384) on every crypto script; commit hash visible + linkable in About; PWA pins the bundle to user-controlled local cache once installed. |
 
 ### Key derivation
 
@@ -172,6 +188,19 @@ clipboard.your.domain {
 }
 ```
 
+### Build with commit hash
+
+Pass `APP_COMMIT` to docker compose so the About modal shows the deployed commit
+linked to GitHub:
+
+```bash
+export APP_COMMIT=$(git rev-parse --short HEAD)
+docker compose build && docker compose up -d
+```
+
+The same value is used as the PWA service-worker cache buster (`?v=…`), so a new
+deploy automatically refreshes the cached bundle on the user's next visit.
+
 ---
 
 ## Project structure
@@ -226,7 +255,8 @@ clipboard.your.domain {
 | `POW_CHALLENGE_TTL_SECONDS` | `120` | How long the client has to solve a challenge |
 | `WRITE_RATE_LIMIT_MAX` | `240` | Per-token writes allowed in `WRITE_RATE_LIMIT_WINDOW_SECONDS`. Set ≤ 0 to disable. |
 | `WRITE_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the per-token write quota (1 hour) |
-| `APP_VERSION` | `2.0.0` | Version displayed in the footer |
+| `APP_VERSION` | `2.1.0` | Version displayed in the footer |
+| `APP_COMMIT` | *(empty)* | Short git commit shown in About modal; also used as the PWA cache buster |
 | `DEBUG` | `false` | Enable FastAPI debug mode and `/docs` endpoint |
 
 ---
@@ -305,7 +335,7 @@ healthcheck.io, k8s probes, etc.):
   "disk_cap_bytes": 10737418240,
   "disk_ratio": 0.0,
   "warn_ratio": 0.8,
-  "version": "2.0.0"
+  "version": "2.1.0"
 }
 ```
 

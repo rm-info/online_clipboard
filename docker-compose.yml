@@ -1,7 +1,12 @@
 services:
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # Pass the host's APP_COMMIT (e.g. `git rev-parse --short HEAD`) into
+        # the image so the About modal and SW cache key reflect the build.
+        APP_COMMIT: ${APP_COMMIT:-}
     restart: unless-stopped
     ports:
       - "127.0.0.1:8000:8000"   # Only exposed to localhost — Nginx handles public TLS
