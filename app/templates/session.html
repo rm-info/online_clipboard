@@ -90,6 +90,20 @@
      copy/check toggle. */
   .reveal-btn[data-mode="hidden"] .eye-hide { display: none; }
   .reveal-btn[data-mode="visible"] .eye-show { display: none; }
+
+  /* Inline preview thumbnail under a file card's title. Server-generated
+     at upload time, fetched on demand via /{sid}/files/{id}/thumb — same
+     auth/encryption story as the file itself. */
+  .file-thumb {
+    display: block;
+    max-width: 180px;
+    max-height: 180px;
+    margin-top: 10px;
+    border-radius: 8px;
+    object-fit: contain;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+  }
   .entry-meta {
     display: flex;
     align-items: center;
@@ -621,6 +635,9 @@
         `;
       }
 
+      const thumbImg = entry.has_thumb
+        ? `<img class="file-thumb" src="/${sid}/files/${entry.id}/thumb" alt="" loading="lazy">`
+        : '';
       return `
         <article class="item-card entry-card" id="${anchorId}">
           <div class="item-card-header">
@@ -636,6 +653,7 @@
             </div>
           </div>
           <div class="entry-title">${escapeHtml(entry.name)}</div>
+          ${thumbImg}
         </article>
       `;
     }).join('');

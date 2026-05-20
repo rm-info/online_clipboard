@@ -621,6 +621,39 @@ async def download_file(request: Request, sid: str, file_id: str):
 
 
 # ---------------------------------------------------------------------------
+# GET /{sid}/files/{file_id}/thumb — Inline JPEG thumbnail preview
+# ---------------------------------------------------------------------------
+
+@app.get("/{sid}/files/{file_id}/thumb")
+async def download_thumb(request: Request, sid: str, file_id: str):
+    if not await _is_authenticated(request, sid):
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    if await sess.session_is_locked(sid):
+        raise HTTPException(status_code=410, detail="Session locked.")
+    if not await sess.session_exists(sid):
+        raise HTTPException(status_code=404, detail="Session expired.")
+
+    key = _get_key(request, sid)
+    try:
+        data = await sess.get_thumb_download(sid, file_id, key)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="File not found.") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Could not decrypt thumb.") from exc
+
+    if data is None:
+        raise HTTPException(status_code=404, detail="No thumbnail.")
+
+    response = StreamingResponse(
+        BytesIO(data),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+    await _refresh_session_cookies(response, request, sid)
+    return response
+
+
+# ---------------------------------------------------------------------------
 # POST /{sid}/items/{item_id}/delete — Delete a single text item
 # ---------------------------------------------------------------------------
 

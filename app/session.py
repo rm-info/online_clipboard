@@ -26,10 +26,12 @@ import os
 import shutil
 import time
 import uuid
+from io import BytesIO
 from pathlib import Path
 from typing import AsyncIterator, Optional
 
 import redis.asyncio as aioredis
+from PIL import Image, UnidentifiedImageError
 
 logger = logging.getLogger(__name__)
 
@@ -217,14 +219,72 @@ def _make_text_meta(item_id: str, size: int, secret: bool = False) -> dict:
     return {"id": item_id, "size": size, "created_at": _now(), "secret": bool(secret)}
 
 
-def _make_file_meta(file_id: str, filename: str, stored_name: str, size: int) -> dict:
+def _make_file_meta(
+    file_id: str,
+    filename: str,
+    stored_name: str,
+    size: int,
+    has_thumb: bool = False,
+) -> dict:
     return {
         "id": file_id,
         "name": os.path.basename(filename),
         "stored_name": stored_name,
         "size": size,
         "uploaded_at": _now(),
+        "has_thumb": bool(has_thumb),
     }
+
+
+# ---------------------------------------------------------------------------
+# Thumbnail generation (server-side, at upload time)
+# ---------------------------------------------------------------------------
+
+# Raster formats Pillow handles natively. HEIC/HEIF and SVG are intentionally
+# left out — they need extra dependencies (pillow-heif, CairoSVG) and aren't
+# worth pulling in for v1 of the preview feature.
+_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "tif", "tiff", "ico"}
+
+# Square bounding box for the generated thumbnail. The original aspect ratio
+# is preserved (Pillow's Image.thumbnail fits within the box).
+_THUMB_MAX_SIZE = 240
+_THUMB_QUALITY = 75
+_THUMB_SUFFIX = ".thumb.bin"
+
+
+def _is_image_filename(filename: str) -> bool:
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return ext in _IMAGE_EXTENSIONS
+
+
+def _thumb_name_for(stored_name: str) -> str:
+    return stored_name.replace(".bin", _THUMB_SUFFIX)
+
+
+def _generate_thumbnail_sync(image_bytes: bytes) -> Optional[bytes]:
+    """Best-effort JPEG thumbnail. Returns None on any decoder failure so the
+    upload still succeeds for the original file even if the image was
+    malformed, unsupported, or a decompression bomb.
+    """
+    try:
+        with Image.open(BytesIO(image_bytes)) as img:
+            img.thumbnail((_THUMB_MAX_SIZE, _THUMB_MAX_SIZE))
+            # JPEG output needs RGB. Flatten alpha onto the app's dark bg so
+            # transparent PNGs/GIFs look intentional instead of black-on-black.
+            if img.mode in ("RGBA", "LA", "P"):
+                if img.mode == "P":
+                    img = img.convert("RGBA")
+                bg = Image.new("RGB", img.size, (10, 13, 16))
+                mask = img.split()[-1] if img.mode in ("RGBA", "LA") else None
+                bg.paste(img, mask=mask)
+                img = bg
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+            out = BytesIO()
+            img.save(out, format="JPEG", quality=_THUMB_QUALITY, optimize=True)
+            return out.getvalue()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return None
 
 
 async def _append_text_entry(
@@ -462,6 +522,7 @@ async def delete_file(sid: str, file_id: str) -> bool:
     if stored_name:
         try:
             (_session_dir(sid) / stored_name).unlink(missing_ok=True)
+            (_session_dir(sid) / _thumb_name_for(stored_name)).unlink(missing_ok=True)
         except OSError:
             pass
 
@@ -505,8 +566,17 @@ async def save_file(sid: str, filename: str, data: bytes, key: bytes) -> dict:
 
     cleanup_expired_upload_dirs()
 
+    # Generate the thumbnail before encrypting anything else. Done off the
+    # event loop because Pillow is sync and may take 100ms+ on a large image.
+    thumb_plain: Optional[bytes] = None
+    if _is_image_filename(filename):
+        thumb_plain = await asyncio.to_thread(_generate_thumbnail_sync, data)
+
     encrypted = encrypt_bytes(data, key)
-    if global_used_bytes() + len(encrypted) > TOTAL_FILE_MAX_BYTES:
+    thumb_encrypted: Optional[bytes] = encrypt_bytes(thumb_plain, key) if thumb_plain else None
+
+    total_new_disk = len(encrypted) + (len(thumb_encrypted) if thumb_encrypted else 0)
+    if global_used_bytes() + total_new_disk > TOTAL_FILE_MAX_BYTES:
         raise ValueError("Service quota exceeded.")
 
     file_id = uuid.uuid4().hex
@@ -514,16 +584,27 @@ async def save_file(sid: str, filename: str, data: bytes, key: bytes) -> dict:
     session_dir.mkdir(parents=True, exist_ok=True)
     stored_name = f"{file_id}.bin"
     file_path = session_dir / stored_name
+    thumb_path = session_dir / _thumb_name_for(stored_name)
     try:
         with file_path.open("wb") as handle:
             handle.write(encrypted)
+        if thumb_encrypted is not None:
+            try:
+                with thumb_path.open("wb") as handle:
+                    handle.write(thumb_encrypted)
+            except OSError:
+                # If the thumb write fails, drop the thumb and continue. The
+                # main file is what matters; preview is a nice-to-have.
+                thumb_path.unlink(missing_ok=True)
+                thumb_encrypted = None
     except OSError as exc:
         file_path.unlink(missing_ok=True)
+        thumb_path.unlink(missing_ok=True)
         if exc.errno == errno.ENOSPC:
             raise ValueError("Disk full.") from exc
         raise
 
-    meta = _make_file_meta(file_id, filename, stored_name, size)
+    meta = _make_file_meta(file_id, filename, stored_name, size, has_thumb=bool(thumb_encrypted))
 
     async with r.pipeline(transaction=True) as pipe:
         pipe.hset(_key_files(sid), file_id, json.dumps(meta))
@@ -539,6 +620,7 @@ async def save_file(sid: str, filename: str, data: bytes, key: bytes) -> dict:
         "name": meta["name"],
         "size": meta["size"],
         "uploaded_at": meta["uploaded_at"],
+        "has_thumb": meta["has_thumb"],
     }
 
 
@@ -560,6 +642,7 @@ async def get_files(sid: str) -> list[dict]:
                 "name": meta["name"],
                 "size": meta["size"],
                 "uploaded_at": meta["uploaded_at"],
+                "has_thumb": bool(meta.get("has_thumb", False)),
             }
         )
     return files
@@ -604,6 +687,7 @@ async def get_session_contents(sid: str, key: bytes) -> dict:
             "name": meta["name"],
             "size": meta["size"],
             "uploaded_at": meta["uploaded_at"],
+            "has_thumb": bool(meta.get("has_thumb", False)),
         }
 
     entries = []
@@ -632,6 +716,25 @@ async def get_file_download(sid: str, file_id: str, key: bytes) -> tuple[str, by
     encrypted = file_path.read_bytes()
     data = decrypt_bytes(encrypted, key)
     return meta["name"], data
+
+
+async def get_thumb_download(sid: str, file_id: str, key: bytes) -> Optional[bytes]:
+    """Return the decrypted JPEG thumbnail for a file, or None if absent."""
+    r = await get_redis()
+    raw_meta = await r.hget(_key_files(sid), file_id)
+    if not raw_meta:
+        raise FileNotFoundError("File not found.")
+
+    meta = _load_meta(raw_meta)
+    if not meta.get("has_thumb"):
+        return None
+
+    thumb_path = _session_dir(sid) / _thumb_name_for(meta["stored_name"])
+    if not thumb_path.exists():
+        return None
+
+    encrypted = thumb_path.read_bytes()
+    return decrypt_bytes(encrypted, key)
 
 
 async def get_item_count(sid: str) -> int:
