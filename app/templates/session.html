@@ -11,31 +11,14 @@
     gap: 12px;
     align-items: start;
   }
-  .timeline-col {
-    position: sticky;
-    top: 20px;
-  }
-  .feed-col {
-    min-width: 0;
-  }
-  .sidebar-col {
-    position: sticky;
-    top: 20px;
-  }
+  .timeline-col { position: sticky; top: 20px; }
+  .feed-col    { min-width: 0; }
+  .sidebar-col { position: sticky; top: 20px; }
   .timeline-panel,
-  .sidebar-stack {
-    display: grid;
-    gap: 12px;
-  }
-  /* .panel + .panel adds margin-top globally for block-stacked panels.
-     Inside a grid container that already provides `gap`, that margin doubles
-     the spacing. Zero it here so adjacent panels in the sidebar respect just
-     the grid gap and match the rest of the app's panel spacing. */
+  .sidebar-stack { display: grid; gap: 12px; }
+  /* Grids already provide their own gap; zero out the global "panel after panel" margin. */
   .sidebar-stack > .panel + .panel { margin-top: 0; }
-  .timeline-list {
-    display: grid;
-    gap: 6px;
-  }
+  .timeline-list { display: grid; gap: 6px; }
   .timeline-link {
     display: flex;
     align-items: center;
@@ -54,46 +37,15 @@
     letter-spacing: .02em;
   }
   .timeline-link:hover,
-  .timeline-link.active {
-    color: var(--accent);
-  }
-  .timeline-index {
-    min-width: 28px;
-  }
-  .timeline-icon {
-    width: 14px;
-    height: 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: currentColor;
-  }
-  .timeline-icon svg {
-    width: 14px;
-    height: 14px;
-    display: block;
-  }
-  .hero-stack {
-    display: grid;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-  .feed-stack {
-    display: grid;
-    gap: 12px;
-  }
-  .entry-card {
-    scroll-margin-top: 22px;
-  }
-  /* Reveal button holds both eye icons; CSS picks the visible one based
-     on data-mode. Mirrors the pattern used by .icon-btn.copied for the
-     copy/check toggle. */
+  .timeline-link.active { color: var(--accent); }
+  .timeline-index { min-width: 28px; }
+  .timeline-icon { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; color: currentColor; }
+  .timeline-icon svg { width: 14px; height: 14px; display: block; }
+  .hero-stack { display: grid; gap: 12px; margin-bottom: 12px; }
+  .feed-stack { display: grid; gap: 12px; }
+  .entry-card { scroll-margin-top: 22px; }
   .reveal-btn[data-mode="hidden"] .eye-hide { display: none; }
   .reveal-btn[data-mode="visible"] .eye-show { display: none; }
-
-  /* Inline preview thumbnail under a file card's title. Server-generated
-     at upload time, fetched on demand via /{sid}/files/{id}/thumb — same
-     auth/encryption story as the file itself. */
   .file-thumb {
     display: block;
     max-width: 180px;
@@ -104,14 +56,7 @@
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--border);
   }
-  .entry-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    color: var(--fg-muted);
-    font-size: .8rem;
-  }
+  .entry-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--fg-muted); font-size: .8rem; }
   .entry-badge {
     display: inline-flex;
     align-items: center;
@@ -126,22 +71,9 @@
     letter-spacing: .06em;
     text-transform: uppercase;
   }
-  .entry-icon {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    display: block;
-  }
-  .entry-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .entry-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--fg);
-  }
+  .entry-icon { width: 14px; height: 14px; flex-shrink: 0; display: block; }
+  .entry-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .entry-title { font-size: 1rem; font-weight: 600; color: var(--fg); }
   .empty-feed {
     padding: 22px;
     text-align: center;
@@ -150,105 +82,30 @@
     border-radius: var(--radius);
     background: rgba(255,255,255,0.02);
   }
-  .sidebar-note {
-    color: var(--fg-muted);
-    font-size: .88rem;
-  }
-  .overview-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  .overview-card {
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--border);
-  }
-  .overview-value {
-    color: var(--fg);
-    font-family: var(--mono);
-    font-size: .98rem;
-    font-weight: 600;
-  }
-  .overview-label {
-    margin-top: 4px;
-    color: var(--fg-muted);
-    font-size: .72rem;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-  }
-  .sidebar-actions {
-    display: grid;
-    gap: 10px;
-  }
-  .sidebar-actions .btn {
-    width: 100%;
-  }
-  .drop-row {
-    display: grid;
-    gap: 10px;
-  }
-  .topline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .topline-title {
-    color: var(--fg-dim);
-    font-family: var(--mono);
-    font-size: .78rem;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-  }
-  .topline-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
+  .sidebar-note { color: var(--fg-muted); font-size: .88rem; }
+  .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .overview-card { padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+  .overview-value { color: var(--fg); font-family: var(--mono); font-size: .98rem; font-weight: 600; }
+  .overview-label { margin-top: 4px; color: var(--fg-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
+  .sidebar-actions { display: grid; gap: 10px; }
+  .sidebar-actions .btn { width: 100%; }
+  .drop-row { display: grid; gap: 10px; }
+  .topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .topline-title { color: var(--fg-dim); font-family: var(--mono); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+  .topline-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
   @media (max-width: 1380px) {
-    .session-grid {
-      grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
-    }
+    .session-grid { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); }
     .timeline-col { display: none; }
   }
-
   @media (max-width: 980px) {
-    .session-grid {
-      grid-template-columns: 1fr;
-    }
-    .sidebar-col,
-    .timeline-col {
-      position: static;
-    }
+    .session-grid { grid-template-columns: 1fr; }
+    .sidebar-col, .timeline-col { position: static; }
   }
 
-  .qr-canvas-wrap {
-    display: flex;
-    justify-content: center;
-    padding: 12px;
-    background: #fff;
-    border-radius: var(--radius-sm);
-    margin-bottom: 12px;
-  }
-  .qr-canvas-wrap canvas,
-  .qr-canvas-wrap img {
-    display: block;
-    width: 100%;
-    height: auto;
-    max-width: 320px;
-    image-rendering: pixelated;
-  }
-  .qr-url {
-    word-break: break-all;
-    text-align: center;
-    font-family: var(--mono);
-    font-size: .8rem;
-    color: var(--fg-dim);
-    user-select: all;
-  }
+  .qr-canvas-wrap { display: flex; justify-content: center; padding: 12px; background: #fff; border-radius: var(--radius-sm); margin-bottom: 12px; }
+  .qr-canvas-wrap canvas, .qr-canvas-wrap img { display: block; width: 100%; height: auto; max-width: 320px; image-rendering: pixelated; }
+  .qr-url { word-break: break-all; text-align: center; font-family: var(--mono); font-size: .8rem; color: var(--fg-dim); user-select: all; }
 </style>
 <script src="/static/qrcode.min.js"></script>
 {% endblock %}
@@ -319,22 +176,10 @@
       <section class="panel">
         <div class="panel-label">{{ tr.overview }}</div>
         <div class="overview-grid">
-          <div class="overview-card">
-            <div class="overview-value" id="overviewEntries">0</div>
-            <div class="overview-label">{{ tr.total_entries }}</div>
-          </div>
-          <div class="overview-card">
-            <div class="overview-value" id="overviewMessages">0</div>
-            <div class="overview-label">{{ tr.messages_count }}</div>
-          </div>
-          <div class="overview-card">
-            <div class="overview-value" id="overviewFiles">0</div>
-            <div class="overview-label">{{ tr.files_count }}</div>
-          </div>
-          <div class="overview-card">
-            <div class="overview-value" id="overviewFileBytes">0 B</div>
-            <div class="overview-label">{{ tr.files_size }}</div>
-          </div>
+          <div class="overview-card"><div class="overview-value" id="overviewEntries">0</div><div class="overview-label">{{ tr.total_entries }}</div></div>
+          <div class="overview-card"><div class="overview-value" id="overviewMessages">0</div><div class="overview-label">{{ tr.messages_count }}</div></div>
+          <div class="overview-card"><div class="overview-value" id="overviewFiles">0</div><div class="overview-label">{{ tr.files_count }}</div></div>
+          <div class="overview-card"><div class="overview-value" id="overviewFileBytes">0 B</div><div class="overview-label">{{ tr.files_size }}</div></div>
         </div>
       </section>
 
@@ -424,42 +269,32 @@
   const FILE_MAX_SIZE = {{ file_max_size }};
   const SESSION_FILE_MAX = {{ session_file_max_bytes }};
   const I18N = {{ js_i18n | tojson }};
-  // Lucide icons (MIT, https://lucide.dev) — self-hosted, inlined for styling
-  // via currentColor. .entry-icon (14px) sizes the entry-badge icons;
-  // .icon (16px) sizes the action button icons.
+  const SSE_ENABLED = {{ sse_enabled | tojson }};
+
+  // Lucide icons — same as v1 set, inlined for currentColor styling.
   const ICON_TEXT = '<svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9.5 8h5"/><path d="M9.5 12H16"/><path d="M9.5 16H14"/></svg>';
   const ICON_FILE = '<svg class="entry-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>';
   const ICON_COPY = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
   const ICON_CHECK = '<svg class="icon icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
   const ICON_DOWNLOAD = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>';
   const ICON_TRASH = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
-  // Both eye icons live in the reveal button at the same time; CSS picks
-  // which is visible based on the button's data-mode attribute. Avoids
-  // runtime innerHTML assignment for the icon swap.
   const ICON_EYE = '<svg class="icon eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
   const ICON_EYE_OFF = '<svg class="icon eye-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
 
   const sessionUrl = window.location.href.split('?')[0];
-  // expires_at is the absolute UNIX seconds at which Redis will drop the
-  // session. Falls back to "TTL seconds from now" if the server couldn't
-  // read it (shouldn't happen for an authenticated render, defensive only).
   let expiresAtMs = ({{ expires_at }} * 1000) || (Date.now() + TTL_SECONDS * 1000);
   let sessionAlive = true;
   let activeEntryId = null;
+  let key = null;              // populated by bootstrap()
+  let lastEntries = [];        // most recent decrypted entries (memoization for SSE deltas)
+  const thumbUrlCache = new Map(); // fileId -> object URL (revoked on session end)
 
   function truncateUrl(url) {
-    // Display "scheme://host[...]suffix": enough of the scheme+host to be
-    // recognizable, plus the tail of the session ID for visual confirmation.
-    // Sized to fit on narrow phone viewports (~25 chars visible at .88rem
-    // mono in the url-box); the CSS ellipsis catches any residual overflow.
     const MAX_LEN = 27;
     if (url.length <= MAX_LEN) return url;
-    const ELLIPSIS = '[...]';
-    const head = 17;
-    const tail = MAX_LEN - ELLIPSIS.length - head;
-    return url.slice(0, head) + ELLIPSIS + url.slice(-tail);
+    const head = 17, tail = MAX_LEN - 5 - head;
+    return url.slice(0, head) + '[...]' + url.slice(-tail);
   }
-
   document.getElementById('sessionUrl').textContent = truncateUrl(sessionUrl);
 
   function formatSize(bytes) {
@@ -469,20 +304,11 @@
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
-
   function escapeHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-
-  function formatWhen(timestamp) {
-    return new Date(timestamp * 1000).toLocaleString();
-  }
-
-  function timelineIcon(type) {
-    // Reuse the same Lucide icons as the entry badges so the timeline
-    // visually mirrors the cards it links to.
-    return type === 'text' ? ICON_TEXT : ICON_FILE;
-  }
+  function formatWhen(ts) { return new Date(ts * 1000).toLocaleString(); }
+  function timelineIcon(type) { return type === 'text' ? ICON_TEXT : ICON_FILE; }
 
   function updateTTL() {
     const remaining = Math.max(0, (expiresAtMs - Date.now()) / 1000);
@@ -490,14 +316,12 @@
     const h = Math.floor(remaining / 3600);
     const m = Math.floor((remaining % 3600) / 60);
     const s = Math.floor(remaining % 60);
-
     document.getElementById('ttlDisplay').textContent = `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
     document.getElementById('ttlPercent').textContent = `${Math.round(pct)}%`;
     const bar = document.getElementById('ttlBar');
     bar.style.width = `${pct}%`;
     bar.style.background = pct > 50 ? 'var(--accent)' : pct > 20 ? 'var(--warn)' : 'var(--danger)';
   }
-
   const ttlInterval = setInterval(updateTTL, 1000);
   updateTTL();
 
@@ -519,8 +343,6 @@
 
     function render() {
       if (rendered) return;
-      // Type 0 = auto-pick smallest QR version that fits; EC level "M" is
-      // a balance between density and scan robustness on phone cameras.
       const qr = qrcode(0, 'M');
       qr.addData(sessionUrl);
       qr.make();
@@ -545,18 +367,13 @@
       document.body.style.overflow = '';
       if (lastFocus) lastFocus.focus();
     }
-
     btn.addEventListener('click', open);
     closeBtn.addEventListener('click', close);
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modal.classList.contains('open')) close();
-    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('open')) close(); });
   })();
 
   function copyItem(btn, id) {
-    // Read from data-real so secret-mode (masked) items still copy the
-    // actual plaintext, not the bullet characters shown on screen.
     const el = document.getElementById(`entry-body-${id}`);
     const text = el.dataset.real ?? el.textContent;
     navigator.clipboard.writeText(text);
@@ -581,15 +398,39 @@
     }
   }
 
+  // Decrypt one server-returned entry. Failure → marker text so the timeline
+  // still renders rather than blowing up the whole feed.
+  async function decryptEntry(e) {
+    if (e.type === 'text') {
+      try {
+        return { ...e, text: await window.ClipCrypto.decryptString(e.ciphertext, key) };
+      } catch (_) {
+        return { ...e, text: '⚠ ' + I18N.error };
+      }
+    }
+    if (e.type === 'file') {
+      try {
+        return { ...e, name: await window.ClipCrypto.decryptString(e.encrypted_name, key) };
+      } catch (_) {
+        return { ...e, name: '⚠ ' + I18N.error };
+      }
+    }
+    return e;
+  }
+
+  async function decryptAll(entries) {
+    return Promise.all(entries.map(decryptEntry));
+  }
+
   function renderEntries(entries, fileBytes) {
     const container = document.getElementById('entriesList');
-    const timeline = document.getElementById('timelineList');
-    const feedMeta = document.getElementById('feedMeta');
-    const messageCount = entries.filter((entry) => entry.type === 'text').length;
-    const fileCount = entries.filter((entry) => entry.type === 'file').length;
+    const timeline  = document.getElementById('timelineList');
+    const feedMeta  = document.getElementById('feedMeta');
+    const messageCount = entries.filter(e => e.type === 'text').length;
+    const fileCount    = entries.filter(e => e.type === 'file').length;
     document.getElementById('overviewEntries').textContent = String(entries.length);
     document.getElementById('overviewMessages').textContent = String(messageCount);
-    document.getElementById('overviewFiles').textContent = String(fileCount);
+    document.getElementById('overviewFiles').textContent    = String(fileCount);
     document.getElementById('overviewFileBytes').textContent = formatSize(fileBytes);
     feedMeta.textContent = entries.length
       ? `${entries.length} · ${I18N.status_used.replace('{used}', formatSize(fileBytes))}`
@@ -597,15 +438,15 @@
 
     if (!entries.length) {
       container.innerHTML = `<div class="empty-feed">${I18N.empty_state_feed}</div>`;
-      timeline.innerHTML = `<div class="muted">${I18N.timeline_empty}</div>`;
+      timeline.innerHTML  = `<div class="muted">${I18N.timeline_empty}</div>`;
       return;
     }
 
     container.innerHTML = entries.map((entry, index) => {
       const anchorId = `entry-${entry.type}-${entry.id}`;
       const label = entry.type === 'text' ? I18N.item_label : I18N.file_label;
-      const icon = entry.type === 'text' ? ICON_TEXT : ICON_FILE;
-      const when = entry.type === 'text' ? entry.created_at : entry.uploaded_at;
+      const icon  = entry.type === 'text' ? ICON_TEXT : ICON_FILE;
+      const when  = entry.type === 'text' ? entry.created_at : entry.uploaded_at;
 
       if (entry.type === 'text') {
         const isSecret = !!entry.secret;
@@ -636,7 +477,7 @@
       }
 
       const thumbImg = entry.has_thumb
-        ? `<img class="file-thumb" src="/${sid}/files/${entry.id}/thumb" alt="" loading="lazy">`
+        ? `<img class="file-thumb" id="thumb-${entry.id}" alt="" loading="lazy">`
         : '';
       return `
         <article class="item-card entry-card" id="${anchorId}">
@@ -649,7 +490,7 @@
             </div>
             <div class="entry-actions">
               <button class="icon-btn icon-btn-danger" onclick="confirmDelete('file', '${entry.id}')" title="${I18N.delete}" aria-label="${I18N.delete_aria_file}">${ICON_TRASH}</button>
-              <a class="icon-btn" href="/${sid}/files/${entry.id}" title="${I18N.download}">${ICON_DOWNLOAD}</a>
+              <button class="icon-btn" onclick="downloadFile('${entry.id}')" title="${I18N.download}">${ICON_DOWNLOAD}</button>
             </div>
           </div>
           <div class="entry-title">${escapeHtml(entry.name)}</div>
@@ -670,13 +511,14 @@
     }).join('');
 
     bindTimelineObserver();
+    // Lazy-load encrypted thumbs after the DOM is in place.
+    entries.filter(e => e.type === 'file' && e.has_thumb).forEach(loadThumb);
   }
 
   function bindTimelineObserver() {
     const cards = document.querySelectorAll('.entry-card');
     const links = document.querySelectorAll('.timeline-link');
     if (!cards.length || !links.length || typeof IntersectionObserver === 'undefined') return;
-
     const observer = new IntersectionObserver((observed) => {
       observed.forEach((entry) => {
         if (!entry.isIntersecting) return;
@@ -684,8 +526,26 @@
         links.forEach((link) => link.classList.toggle('active', link.dataset.anchor === activeEntryId));
       });
     }, { rootMargin: '-20% 0px -70% 0px', threshold: 0.05 });
-
     cards.forEach((card) => observer.observe(card));
+  }
+
+  async function loadThumb(entry) {
+    const cached = thumbUrlCache.get(entry.id);
+    const imgEl  = document.getElementById(`thumb-${entry.id}`);
+    if (!imgEl) return;
+    if (cached) { imgEl.src = cached; return; }
+    try {
+      const res = await fetch(`/${sid}/files/${entry.id}/thumb`);
+      if (!res.ok) return;
+      const ct  = new Uint8Array(await res.arrayBuffer());
+      const buf = await window.ClipCrypto.decryptBytes(ct, key);
+      const blob = new Blob([buf], { type: 'image/jpeg' });
+      const url  = URL.createObjectURL(blob);
+      thumbUrlCache.set(entry.id, url);
+      imgEl.src = url;
+    } catch (e) {
+      console.warn('thumb decrypt failed for', entry.id, e);
+    }
   }
 
   async function fetchContents() {
@@ -694,16 +554,26 @@
     if (res.status === 404) { handleExpired('expired'); return; }
     if (res.status === 401) { window.location.reload(); return; }
     const data = await res.json();
-    renderEntries(data.entries || [], data.file_bytes || 0);
+    lastEntries = await decryptAll(data.entries || []);
+    renderEntries(lastEntries, data.file_bytes || 0);
+  }
+
+  function revokeAllThumbUrls() {
+    thumbUrlCache.forEach(URL.revokeObjectURL);
+    thumbUrlCache.clear();
   }
 
   function handleExpired(reason) {
     sessionAlive = false;
-    {% if sse_enabled %}if (sseSource) { sseSource.close(); sseSource = null; }{% endif %}
+    if (sseSource) { sseSource.close(); sseSource = null; }
+    revokeAllThumbUrls();
+    // Drop the local key — the session is gone and a future user on the same
+    // tab shouldn't inherit it.
+    window.ClipKeystore.clear(sid);
 
     const messages = {
-      locked: I18N.session_locked_feed,
-      wiped: I18N.session_wiped_feed,
+      locked:  I18N.session_locked_feed,
+      wiped:   I18N.session_wiped_feed,
       expired: I18N.session_expired_feed,
     };
     const message = messages[reason] || I18N.session_expired_feed;
@@ -731,30 +601,42 @@
     btn.disabled = true;
     status.textContent = I18N.saving;
 
-    const body = new URLSearchParams({ text, secret: secretToggle && secretToggle.checked ? 'true' : 'false' });
-    const res = await fetch(`/${sid}/add`, {
-      method: 'POST',
-      body,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
+    try {
+      const ciphertext = await window.ClipCrypto.encryptString(text, key);
+      const plainSize  = new Blob([text]).size;
+      const body = new URLSearchParams({
+        ciphertext,
+        plain_size: String(plainSize),
+        secret: secretToggle && secretToggle.checked ? 'true' : 'false',
+      });
+      const res = await fetch(`/${sid}/items`, {
+        method: 'POST', body,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        credentials: 'same-origin',
+      });
 
-    if (res.ok) {
-      textArea.value = '';
-      if (secretToggle) {
-        secretToggle.checked = false;
-        textArea.classList.remove('textarea-secret');
+      if (res.ok) {
+        textArea.value = '';
+        if (secretToggle) {
+          secretToggle.checked = false;
+          textArea.classList.remove('textarea-secret');
+        }
+        status.textContent = I18N.added;
+        setTimeout(() => { status.textContent = ''; }, 2000);
+        expiresAtMs = Date.now() + TTL_SECONDS * 1000;
+        await fetchContents();
+      } else {
+        if (res.status === 404) { handleExpired('expired'); return; }
+        if (res.status === 410) { handleExpired('locked');  return; }
+        if (res.status === 401) { window.location.reload(); return; }
+        status.textContent = I18N.error;
       }
-      status.textContent = I18N.added;
-      setTimeout(() => { status.textContent = ''; }, 2000);
-      expiresAtMs = Date.now() + TTL_SECONDS * 1000;
-      await fetchContents();
-    } else {
-      if (res.status === 404) { handleExpired('expired'); return; }
-      if (res.status === 410) { handleExpired('locked'); return; }
-      if (res.status === 401) { window.location.reload(); return; }
+    } catch (e) {
+      console.error(e);
       status.textContent = I18N.error;
+    } finally {
+      btn.disabled = false;
     }
-    btn.disabled = false;
   }
 
   async function uploadFiles() {
@@ -777,26 +659,36 @@
         return;
       }
 
-      status.textContent = `${i + 1}/${files.length} · ${file.name}`;
-      const formData = new FormData();
-      formData.append('file', file);
+      status.textContent = `${i + 1}/${files.length} · ${I18N.encrypting_progress} ${file.name}`;
+      try {
+        const ab = await file.arrayBuffer();
+        const ct = await window.ClipCrypto.encryptBytes(ab, key);
+        const encName = await window.ClipCrypto.encryptString(file.name, key);
 
-      const res = await fetch(`/${sid}/upload`, {
-        method: 'POST',
-        body: formData,
-      });
+        const formData = new FormData();
+        formData.append('file', new Blob([ct], { type: 'application/octet-stream' }), 'ciphertext.bin');
+        formData.append('encrypted_name', encName);
+        formData.append('plain_size', String(file.size));
 
-      if (!res.ok) {
-        if (res.status === 404) { handleExpired('expired'); return; }
-        if (res.status === 410) { handleExpired('locked'); return; }
-        if (res.status === 401) { window.location.reload(); return; }
-        const data = await res.json().catch(() => ({}));
-        status.textContent = data.detail || I18N.error;
+        status.textContent = `${i + 1}/${files.length} · ${file.name}`;
+        const res = await fetch(`/${sid}/upload`, { method: 'POST', body: formData, credentials: 'same-origin' });
+
+        if (!res.ok) {
+          if (res.status === 404) { handleExpired('expired'); return; }
+          if (res.status === 410) { handleExpired('locked');  return; }
+          if (res.status === 401) { window.location.reload(); return; }
+          const data = await res.json().catch(() => ({}));
+          status.textContent = data.detail || I18N.error;
+          btn.disabled = false;
+          return;
+        }
+        expiresAtMs = Date.now() + TTL_SECONDS * 1000;
+      } catch (e) {
+        console.error(e);
+        status.textContent = I18N.error;
         btn.disabled = false;
         return;
       }
-
-      expiresAtMs = Date.now() + TTL_SECONDS * 1000;
     }
 
     input.value = '';
@@ -807,6 +699,40 @@
     await fetchContents();
   }
 
+  async function downloadFile(fileId) {
+    try {
+      const res = await fetch(`/${sid}/files/${fileId}`);
+      if (!res.ok) {
+        if (res.status === 404) { handleExpired('expired'); return; }
+        if (res.status === 410) { handleExpired('locked');  return; }
+        if (res.status === 401) { window.location.reload(); return; }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      // Decode encrypted_name header (urlsafe base64 of the AES-GCM token).
+      const encNameB64 = res.headers.get('X-Clip-Encrypted-Name') || '';
+      let name = 'file';
+      if (encNameB64) {
+        const bin = atob(encNameB64.replace(/-/g, '+').replace(/_/g, '/'));
+        const tokenAscii = bin;
+        try { name = await window.ClipCrypto.decryptString(tokenAscii, key); } catch (_) {}
+      }
+
+      const ct  = new Uint8Array(await res.arrayBuffer());
+      const buf = await window.ClipCrypto.decryptBytes(ct, key);
+      const blob = new Blob([buf], { type: 'application/octet-stream' });
+      const url  = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (e) {
+      console.error(e);
+      alert(I18N.error);
+    }
+  }
+
   const MAX_TEXT_SIZE = 500000;
   document.getElementById('newText').addEventListener('input', () => {
     const size = new Blob([document.getElementById('newText').value]).size;
@@ -814,11 +740,9 @@
     el.textContent = `${formatSize(size)} / {{ tr.kb_limit }}`;
     el.style.color = size > MAX_TEXT_SIZE ? 'var(--danger)' : size > MAX_TEXT_SIZE * 0.8 ? 'var(--warn)' : '';
   });
-
   document.getElementById('newText').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) addItem();
   });
-
   (() => {
     const secretToggle = document.getElementById('secretToggle');
     const newText = document.getElementById('newText');
@@ -827,7 +751,6 @@
       newText.classList.toggle('textarea-secret', secretToggle.checked);
     });
   })();
-
   document.getElementById('fileInput').addEventListener('change', () => {
     const files = Array.from(document.getElementById('fileInput').files || []);
     const total = files.reduce((sum, file) => sum + file.size, 0);
@@ -836,46 +759,35 @@
       : '';
   });
 
-  function confirmWipe() {
-    document.getElementById('wipeOverlay').style.display = 'flex';
-  }
-
-  function closeWipe() {
-    document.getElementById('wipeOverlay').style.display = 'none';
-  }
-
+  function confirmWipe() { document.getElementById('wipeOverlay').style.display = 'flex'; }
+  function closeWipe()   { document.getElementById('wipeOverlay').style.display = 'none'; }
   async function doWipe() {
     closeWipe();
-    {% if sse_enabled %}if (sseSource) { sseSource.close(); sseSource = null; }{% endif %}
+    if (sseSource) { sseSource.close(); sseSource = null; }
     await fetch(`/${sid}/wipe`, { method: 'POST' });
+    revokeAllThumbUrls();
+    window.ClipKeystore.clear(sid);
     window.location.href = '/';
   }
 
   let pendingDelete = null;
-
   function confirmDelete(type, id) {
     pendingDelete = { type, id };
-    const titleEl = document.getElementById('deleteTitle');
-    titleEl.textContent = type === 'text' ? I18N.delete_item_title : I18N.delete_file_title;
+    document.getElementById('deleteTitle').textContent = type === 'text' ? I18N.delete_item_title : I18N.delete_file_title;
     document.getElementById('deleteOverlay').style.display = 'flex';
   }
-
-  function closeDelete() {
-    pendingDelete = null;
-    document.getElementById('deleteOverlay').style.display = 'none';
-  }
-
+  function closeDelete() { pendingDelete = null; document.getElementById('deleteOverlay').style.display = 'none'; }
   async function executeDelete() {
     if (!pendingDelete) return;
     const { type, id } = pendingDelete;
     const btn = document.getElementById('deleteConfirmBtn');
-    const originalText = btn.textContent;
+    const original = btn.textContent;
     btn.disabled = true;
     btn.textContent = I18N.deleting;
     const url = type === 'text' ? `/${sid}/items/${id}/delete` : `/${sid}/files/${id}/delete`;
     const res = await fetch(url, { method: 'POST' });
     btn.disabled = false;
-    btn.textContent = originalText;
+    btn.textContent = original;
     closeDelete();
     if (res.ok) { await fetchContents(); return; }
     if (res.status === 401) { window.location.reload(); return; }
@@ -883,95 +795,91 @@
     if (res.status === 410) { handleExpired('locked'); return; }
   }
 
-  // Esc + click-outside affordances for the wipe and delete confirm modals.
-  // Both use inline display:none/flex (not .modal-scrim) so they don't get the
-  // generic privacy-modal handler from base.html — wire them explicitly here.
   (() => {
     const wipe = document.getElementById('wipeOverlay');
-    const del = document.getElementById('deleteOverlay');
+    const del  = document.getElementById('deleteOverlay');
     if (wipe) wipe.addEventListener('click', (e) => { if (e.target === wipe) closeWipe(); });
-    if (del) del.addEventListener('click', (e) => { if (e.target === del) closeDelete(); });
+    if (del)  del.addEventListener('click',  (e) => { if (e.target === del)  closeDelete(); });
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       if (wipe && wipe.style.display === 'flex') { closeWipe(); return; }
-      if (del && del.style.display === 'flex') { closeDelete(); }
+      if (del  && del.style.display  === 'flex') { closeDelete(); }
     });
   })();
 
-  {% if sse_enabled %}
   let sseSource = null;
-
   function connectSSE() {
+    if (!SSE_ENABLED) return;
     if (sseSource) sseSource.close();
     sseSource = new EventSource(`/${sid}/stream`);
-
     sseSource.onopen = () => {
       const el = document.getElementById('liveIndicator');
-      if (el) {
-        el.querySelector('.live-text').textContent = I18N.live;
-        el.style.color = 'var(--accent)';
-      }
+      if (el) { el.querySelector('.live-text').textContent = I18N.live; el.style.color = 'var(--accent)'; }
     };
-
     sseSource.onmessage = async (e) => {
-      if (e.data === 'new_item' || e.data === 'new_file' || e.data === 'item_deleted' || e.data === 'file_deleted') await fetchContents();
+      if (['new_item', 'new_file', 'item_deleted', 'file_deleted'].includes(e.data)) await fetchContents();
       if (e.data === 'session_expired') handleExpired('expired');
-      if (e.data === 'session_locked') handleExpired('locked');
-      if (e.data === 'session_wiped') handleExpired('wiped');
+      if (e.data === 'session_locked')  handleExpired('locked');
+      if (e.data === 'session_wiped')   handleExpired('wiped');
     };
-
     sseSource.onerror = () => {
       const el = document.getElementById('liveIndicator');
-      if (el) {
-        el.querySelector('.live-text').textContent = I18N.reconnecting;
-        el.style.color = 'var(--warn)';
-      }
+      if (el) { el.querySelector('.live-text').textContent = I18N.reconnecting; el.style.color = 'var(--warn)'; }
     };
   }
-
-  // Explicitly close the stream when leaving the page. Firefox logs
-  // "Connection interrupted while loading" otherwise — harmless but noisy
-  // in the console; this turns it into a clean close instead.
   window.addEventListener('beforeunload', () => {
     if (sseSource) { sseSource.close(); sseSource = null; }
+    revokeAllThumbUrls();
   });
-  {% endif %}
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
-      const res = await fetch(`/${sid}/contents`).catch(() => null);
-      if (!res) return;
-      if (res.status === 410) { handleExpired('locked'); return; }
-      if (res.status === 404) { handleExpired('expired'); return; }
-      if (res.status === 401) { window.location.reload(); return; }
-      const data = await res.json().catch(() => ({}));
-      renderEntries(data.entries || [], data.file_bytes || 0);
-      {% if sse_enabled %}
-      if (!sseSource || sseSource.readyState === EventSource.CLOSED) connectSSE();
-      {% endif %}
+      await fetchContents().catch(() => {});
+      if (SSE_ENABLED && (!sseSource || sseSource.readyState === EventSource.CLOSED)) connectSSE();
     }
   });
 
   async function pollSessionStatus() {
     if (!sessionAlive) return;
-    const res = await fetch(`/${sid}/contents`).catch(() => null);
-    if (!res) return;
-    if (res.status === 410) { sessionAlive = false; handleExpired('locked'); return; }
-    if (res.status === 404) { sessionAlive = false; handleExpired('expired'); return; }
-    if (res.status === 401) { window.location.reload(); return; }
-    const data = await res.json().catch(() => ({}));
-    renderEntries(data.entries || [], data.file_bytes || 0);
+    await fetchContents().catch(() => {});
+  }
+  setInterval(pollSessionStatus, SSE_ENABLED ? 30000 : 10000);
+
+  async function bootstrap() {
+    if (!window.ClipCrypto || !window.ClipKeystore) {
+      document.getElementById('entriesList').innerHTML = `<div class="alert alert-danger">${I18N.error}</div>`;
+      return;
+    }
+    key = await window.ClipKeystore.load(sid);
+    if (!key) {
+      // Token cookie is valid but the in-memory key is gone (tab reopened,
+      // sessionStorage wiped, etc). Force a fresh auth handshake.
+      window.location.href = `/${sid}?reauth=1`;
+      return;
+    }
+    await fetchContents();
+    connectSSE();
   }
 
-  {% if sse_enabled %}
-  setInterval(pollSessionStatus, 30000);
-  {% else %}
-  setInterval(pollSessionStatus, 10000);
-  {% endif %}
+  // Make the inline onclick handlers reachable.
+  window.copyUrl       = copyUrl;
+  window.copyItem      = copyItem;
+  window.toggleReveal  = toggleReveal;
+  window.addItem       = addItem;
+  window.uploadFiles   = uploadFiles;
+  window.downloadFile  = downloadFile;
+  window.confirmWipe   = confirmWipe;
+  window.closeWipe     = closeWipe;
+  window.doWipe        = doWipe;
+  window.confirmDelete = confirmDelete;
+  window.closeDelete   = closeDelete;
+  window.executeDelete = executeDelete;
 
-  fetchContents();
-  {% if sse_enabled %}
-  connectSSE();
-  {% endif %}
+  // Wait for the deferred crypto modules to load before bootstrapping.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap);
+  } else {
+    setTimeout(bootstrap, 0);
+  }
 </script>
 {% endblock %}

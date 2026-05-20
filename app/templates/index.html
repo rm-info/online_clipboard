@@ -66,6 +66,8 @@
       <label class="toggle-label" for="secret">{{ tr.secret_mode }}</label>
     </div>
 
+    <div id="createStatus" class="muted" style="margin: 6px 0 10px; min-height: 1.2em; font-size: .88rem;"></div>
+
     <div class="flex-row flex-end">
       <button type="submit" class="btn btn-primary" id="submitBtn">{{ icon_arrow_right() }}<span class="btn-label">{{ tr.create_session }}</span></button>
     </div>
@@ -134,10 +136,73 @@
     sizeEl.style.color = size > max ? 'var(--danger)' : size > max * 0.8 ? 'var(--warn)' : '';
   });
 
-  document.getElementById('createForm').addEventListener('submit', () => {
+  document.getElementById('createForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
     const btn = document.getElementById('submitBtn');
+    const labelEl = btn.querySelector('.btn-label');
+    const status = document.getElementById('createStatus');
     btn.disabled = true;
-    btn.querySelector('.btn-label').textContent = tr.creating;
+    labelEl.textContent = tr.creating;
+    status.textContent = '';
+
+    try {
+      if (!window.ClipCrypto || !window.crypto || !window.crypto.subtle) {
+        throw new Error(tr.browser_unsupported);
+      }
+
+      const text     = textarea.value.trim();
+      const password = document.getElementById('password').value;
+      const secureMode = document.getElementById('secure_mode').checked;
+      const secretFlag = document.getElementById('secret').checked;
+
+      if (!text) throw new Error('empty');
+
+      status.textContent = tr.pow_progress;
+      const ch = await fetch('/pow/challenge').then(r => r.json());
+      const sol = await window.ClipCrypto.solvePow(ch.challenge, ch.difficulty);
+
+      status.textContent = tr.key_derivation_progress;
+      const salt = window.ClipCrypto.randomSaltB64(16);
+      const key  = await window.ClipCrypto.deriveKey(password, salt);
+
+      status.textContent = tr.encrypting_progress;
+      // Random 16-byte verifier; sha256(hex) is the anchor the server can
+      // compare against without ever seeing the key.
+      const verifierBytes = window.crypto.getRandomValues(new Uint8Array(16));
+      const verifierHex = Array.from(verifierBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const verifierBlob = await window.ClipCrypto.encryptString(verifierHex, key);
+      const authAnchor = await window.ClipCrypto.sha256Hex(verifierHex);
+      const firstItemCt = await window.ClipCrypto.encryptString(text, key);
+      const firstItemSize = new Blob([text]).size;
+
+      const body = new FormData();
+      body.set('first_item_ct',  firstItemCt);
+      body.set('first_item_size', String(firstItemSize));
+      body.set('has_password',   password ? 'true' : 'false');
+      body.set('salt',           salt);
+      body.set('verifier_blob',  verifierBlob);
+      body.set('auth_anchor',    authAnchor);
+      body.set('pow_challenge',  ch.challenge);
+      body.set('pow_nonce',      sol.nonce);
+      body.set('secure_mode',    secureMode ? 'true' : 'false');
+      body.set('secret',         secretFlag ? 'true' : 'false');
+
+      const resp = await fetch('/', { method: 'POST', body, credentials: 'same-origin' });
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => ({}));
+        throw new Error(detail.detail || `HTTP ${resp.status}`);
+      }
+      const payload = await resp.json();
+
+      await window.ClipKeystore.store(payload.sid, key);
+      window.location.href = payload.redirect;
+    } catch (err) {
+      console.error(err);
+      status.style.color = 'var(--danger)';
+      status.textContent = `${tr.error}: ${err.message || err}`;
+      btn.disabled = false;
+      labelEl.textContent = tr.create_session;
+    }
   });
 
   (() => {

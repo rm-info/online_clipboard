@@ -753,6 +753,11 @@
       .icon-btn { width: 38px; }
     }
   </style>
+  {# Load crypto vendor + wrappers in <head> so any in-page script can call
+     ClipCrypto / ClipKeystore unconditionally — no async-load gymnastics. #}
+  <script src="/static/js/vendor/hash-wasm.umd.min.js" defer></script>
+  <script src="/static/js/clip-crypto.js" defer></script>
+  <script src="/static/js/clip-keystore.js" defer></script>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -819,14 +824,16 @@
 
         <h4>{{ tr.privacy_cookies_heading }}</h4>
         <ul>
-          <li><code>clip_auth_&lt;id&gt;</code> — {{ tr.privacy_cookie_auth_purpose }}</li>
-          <li><code>clip_key_&lt;id&gt;</code> — {{ tr.privacy_cookie_key_purpose }}</li>
+          <li><code>clip_token_&lt;id&gt;</code> — {{ tr.privacy_cookie_token_purpose }}</li>
           <li><code>clip_lang</code> — {{ tr.privacy_cookie_lang_purpose }}</li>
         </ul>
 
+        <h4>{{ tr.privacy_keystore_heading }}</h4>
+        <p>{{ tr.privacy_keystore_text }}</p>
+
         <h4>{{ tr.privacy_data_heading }}</h4>
         <p>{{ tr.privacy_data_content }}</p>
-        <p>{{ tr.privacy_data_ip }}</p>
+        <p>{{ tr.privacy_data_anon }}</p>
 
         <h4>{{ tr.privacy_limits_heading }}</h4>
         <ul>
@@ -834,6 +841,9 @@
           <li>{{ tr.privacy_limit_device }}</li>
           <li>{{ tr.privacy_limit_url }}</li>
         </ul>
+
+        <h4>{{ tr.privacy_password_loss_heading }}</h4>
+        <p>{{ tr.privacy_password_loss_text }}</p>
 
         <h4>{{ tr.privacy_not_doing_heading }}</h4>
         <p>{{ tr.privacy_not_doing_text }}</p>

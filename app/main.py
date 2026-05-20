@@ -1,29 +1,35 @@
 """
-main.py — FastAPI application
-==============================
+main.py — FastAPI application (E2EE / anon mode, v2).
+=======================================================
 
 Routes:
-  GET  /                      → Paste form
-  POST /                      → Create session, redirect to /{sid}
-  GET  /{sid}                 → Auth form (or session view if cookie valid)
-  POST /{sid}/auth            → Verify password, set session cookie
-  POST /{sid}/add             → Add item to existing authenticated session
-  POST /{sid}/upload          → Upload encrypted file to existing session
-  GET  /{sid}/contents        → JSON: fetch text items + file metadata
-  GET  /{sid}/files/{file_id} → Download decrypted file payload
-  GET  /{sid}/items           → JSON: fetch all decrypted items (AJAX)
-  POST /{sid}/wipe            → Delete session immediately
-  GET  /{sid}/stream          → SSE: real-time push notifications
+  GET  /                            → Paste form (loads JS crypto bundle)
+  POST /                            → Create session from client ciphertext
+  GET  /{sid}                       → Session page or auth handshake
+  GET  /{sid}/verifier               → Encrypted verifier blob + has_password
+  POST /{sid}/auth                  → Verify auth_proof, issue signed token
+  GET  /{sid}/contents              → JSON: ciphertext blobs + opaque metadata
+  POST /{sid}/items                 → Add a ciphertext text item
+  POST /{sid}/upload                → Upload encrypted file + optional thumb
+  GET  /{sid}/files/{file_id}       → Encrypted file bytes (header: enc name)
+  GET  /{sid}/files/{file_id}/thumb → Encrypted thumb bytes
+  POST /{sid}/items/{item_id}/delete
+  POST /{sid}/files/{file_id}/delete
+  POST /{sid}/wipe                  → Delete session immediately
+  GET  /{sid}/stream                → SSE for live updates
+  GET  /pow/challenge               → Issue a PoW challenge
+  GET  /healthz                     → Liveness probe (anonymous)
 
-Cookie design:
-  clip_auth_{sid}  — httponly, secure: proves authentication (value="1")
-  clip_key_{sid}   — httponly, secure: holds the base64-encoded 32-byte
-                     AES key derived from password + server pepper via
-                     Argon2id. Lives in the browser cookie store, out
-                     of reach of page JS. Server uses it directly to
-                     decrypt content — no per-request Argon2id. The
-                     typed password is never stored anywhere; only the
-                     derived key briefly lives in this cookie.
+Cookies:
+  clip_token_{sid}  — httponly, secure, samesite=strict: HMAC-signed write
+                      token (see tokens.py). Issued after a successful auth
+                      handshake (client proves it could decrypt the verifier).
+                      Lifetime = session TTL, sliding on each authenticated
+                      response. Contains NO key material.
+
+There are no IP-based controls. Anti-abuse on anonymous endpoints (POST /,
+POST /{sid}/auth) is via proof-of-work. Per-token write quotas cap how
+much a single browser session can spam.
 """
 
 import asyncio
@@ -31,7 +37,7 @@ import base64
 import time
 from contextlib import asynccontextmanager
 from io import BytesIO
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import (
     File,
@@ -47,21 +53,21 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-import session as sess
+import pow as pow_mod
 import security as sec
+import session as sess
+import tokens as tok
 from config import (
     APP_VERSION,
-    CREATE_RATE_LIMIT_MAX,
-    CREATE_RATE_LIMIT_WINDOW_SECONDS,
     DEBUG,
     FILE_MAX_SIZE_BYTES,
     HEALTHZ_WARN_RATIO,
+    POW_CHALLENGE_TTL_SECONDS,
+    POW_DIFFICULTY_BITS,
     SESSION_FILE_MAX_BYTES,
     SESSION_TTL_SECONDS,
     SSE_ENABLED,
     TOTAL_FILE_MAX_BYTES,
-    UPLOAD_RATE_LIMIT_MAX,
-    UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
 )
 from i18n import DEFAULT_LANGUAGE, LANG_COOKIE, SUPPORTED_LANGUAGES, get_translations, normalize_language
 
@@ -86,8 +92,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, docs_url="/docs" if DEBUG else None)
 
-# Trust proxy headers (Passenger/Nginx forward requests as HTTP internally)
-# This ensures cookies are set correctly even behind a reverse proxy
+# Proxy headers still trusted so secure-cookie scheme detection works behind
+# Caddy. We never read the client IP from them — there is no IP tracking.
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
@@ -95,88 +101,52 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["app_version"] = APP_VERSION
 templates.env.globals["sse_enabled"] = SSE_ENABLED
+templates.env.globals["pow_difficulty"] = POW_DIFFICULTY_BITS
 
 
 # ---------------------------------------------------------------------------
 # Cookie helpers
 # ---------------------------------------------------------------------------
 
-def _auth_cookie(sid: str) -> str:
-    return f"clip_auth_{sid}"
-
-def _key_cookie(sid: str) -> str:
-    return f"clip_key_{sid}"
+def _token_cookie(sid: str) -> str:
+    return f"clip_token_{sid}"
 
 
-def _set_session_cookies(
-    response: Response,
-    sid: str,
-    key: bytes,
-    max_age: int = SESSION_TTL_SECONDS,
-) -> None:
-    """Set both auth and key cookies — both httponly, secure.
-
-    The key is base64-urlsafe encoded so it travels safely in a cookie
-    value. The typed password is never written; this is the Argon2id
-    output, not the user input.
-    """
-    key_b64 = base64.urlsafe_b64encode(key).decode("ascii")
-    common = dict(max_age=max_age, httponly=True, secure=True, samesite="strict")
-    response.set_cookie(key=_auth_cookie(sid), value="1", **common)
-    response.set_cookie(key=_key_cookie(sid),  value=key_b64, **common)
+def _set_token_cookie(response: Response, sid: str, ttl: int = SESSION_TTL_SECONDS) -> None:
+    response.set_cookie(
+        key=_token_cookie(sid),
+        value=tok.issue(sid, ttl_seconds=ttl),
+        max_age=ttl,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+    )
 
 
-async def _refresh_session_cookies(response: Response, request: Request, sid: str) -> None:
-    """Align cookie lifetime with the server's sliding session TTL.
+def _clear_token_cookie(response: Response, sid: str) -> None:
+    response.delete_cookie(key=_token_cookie(sid))
 
-    Why: server-side TTL slides on each write activity, but cookies are
-    posted with a fixed max_age at login. A passive viewer (no writes)
-    would lose their cookies 2h after auth even while the session is
-    still alive — the data silently vanishes from their UI until F5.
-    """
+
+async def _refresh_token_cookie(response: Response, request: Request, sid: str) -> None:
+    """Slide the signed-token cookie's lifetime to match the server TTL."""
     expires_at = await sess.get_session_expires_at(sid)
     if not expires_at:
         return
     remaining = expires_at - int(time.time())
     if remaining <= 0:
         return
-    key = _get_key(request, sid)
-    if not key:
+    if not request.cookies.get(_token_cookie(sid)):
         return
-    _set_session_cookies(response, sid, key, max_age=remaining)
-
-
-def _clear_session_cookies(response: Response, sid: str) -> None:
-    response.delete_cookie(key=_auth_cookie(sid))
-    response.delete_cookie(key=_key_cookie(sid))
+    _set_token_cookie(response, sid, ttl=remaining)
 
 
 def _set_language_cookie(response: Response, lang: str) -> None:
     response.set_cookie(key=LANG_COOKIE, value=lang, max_age=60 * 60 * 24 * 365, samesite="lax")
 
 
-def get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host
-
-
-async def _is_authenticated(request: Request, sid: str) -> bool:
-    auth_ok = request.cookies.get(_auth_cookie(sid)) == "1"
-    has_key = bool(request.cookies.get(_key_cookie(sid)))
-    return auth_ok and has_key and await sess.session_exists(sid)
-
-
-def _get_key(request: Request, sid: str) -> bytes:
-    """Decode the AES key from the httponly clip_key cookie. Empty on miss."""
-    val = request.cookies.get(_key_cookie(sid), "")
-    if not val:
-        return b""
-    try:
-        return base64.urlsafe_b64decode(val)
-    except Exception:
-        return b""
+def _has_valid_token(request: Request, sid: str) -> bool:
+    token = request.cookies.get(_token_cookie(sid), "")
+    return tok.verify(token, sid) is not None
 
 
 def _get_language(request: Request) -> str:
@@ -224,8 +194,24 @@ def _render_template(request: Request, template_name: str, context: dict, status
     return response
 
 
-async def _read_upload_bytes(upload: UploadFile) -> bytes:
-    """Read an uploaded file with an explicit per-file size limit."""
+async def _enforce_pow(challenge: str, nonce: str) -> None:
+    ok = await pow_mod.consume(challenge, nonce, POW_DIFFICULTY_BITS)
+    if not ok:
+        raise HTTPException(status_code=429, detail="Invalid or expired proof-of-work.")
+
+
+async def _enforce_write_quota(token: str) -> None:
+    allowed, retry_after = await sec.check_write_quota(token)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Write rate limit exceeded.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
+async def _read_upload_bytes(upload: UploadFile, *, allow_empty: bool = False) -> bytes:
+    """Stream-read an UploadFile with a per-file size cap."""
     total = 0
     chunks = []
     try:
@@ -243,14 +229,14 @@ async def _read_upload_bytes(upload: UploadFile) -> bytes:
     finally:
         await upload.close()
 
-    if total == 0:
+    if total == 0 and not allow_empty:
         raise HTTPException(status_code=422, detail="File cannot be empty.")
 
     return b"".join(chunks)
 
 
 # ---------------------------------------------------------------------------
-# GET /healthz — Liveness + disk budget probe (anonymous)
+# GET /healthz
 # ---------------------------------------------------------------------------
 
 @app.get("/healthz")
@@ -287,6 +273,18 @@ async def healthz():
 
 
 # ---------------------------------------------------------------------------
+# GET /pow/challenge — Public PoW challenge issuance
+# ---------------------------------------------------------------------------
+
+@app.get("/pow/challenge")
+async def pow_challenge():
+    challenge, difficulty = await pow_mod.issue_challenge(
+        POW_DIFFICULTY_BITS, ttl_seconds=POW_CHALLENGE_TTL_SECONDS
+    )
+    return JSONResponse({"challenge": challenge, "difficulty": difficulty})
+
+
+# ---------------------------------------------------------------------------
 # GET / — Paste form
 # ---------------------------------------------------------------------------
 
@@ -296,56 +294,59 @@ async def index(request: Request):
 
 
 # ---------------------------------------------------------------------------
-# POST / — Create session
+# POST / — Create session (E2EE)
 # ---------------------------------------------------------------------------
 
 @app.post("/")
 async def create_session(
     request: Request,
-    text: Annotated[str, Form()],
-    password: Annotated[str, Form()] = "",
+    first_item_ct: Annotated[str, Form()],
+    first_item_size: Annotated[int, Form()],
+    has_password: Annotated[bool, Form()],
+    salt: Annotated[str, Form()],
+    verifier_blob: Annotated[str, Form()],
+    auth_anchor: Annotated[str, Form()],
+    pow_challenge: Annotated[str, Form()],
+    pow_nonce: Annotated[str, Form()],
     secure_mode: Annotated[bool, Form()] = False,
     secret: Annotated[bool, Form()] = False,
 ):
-    ip = get_client_ip(request)
+    await _enforce_pow(pow_challenge, pow_nonce)
 
-    banned, ban_type = await sec.is_banned(ip)
-    if banned:
-        raise HTTPException(status_code=429, detail=f"IP {ban_type}-banned.")
-
-    allowed, retry_after = await sec.check_action_quota(
-        ip, "create", CREATE_RATE_LIMIT_MAX, CREATE_RATE_LIMIT_WINDOW_SECONDS,
-    )
-    if not allowed:
-        raise HTTPException(
-            status_code=429,
-            detail="Too many sessions created from this IP. Try again later.",
-            headers={"Retry-After": str(retry_after)},
-        )
-
-    text = text.strip()
-    if not text:
-        raise HTTPException(status_code=422, detail="Text cannot be empty.")
-    if len(text) > 500_000:
+    if not first_item_ct or first_item_size <= 0:
+        raise HTTPException(status_code=422, detail="First item is required.")
+    if first_item_size > 500_000:
         raise HTTPException(status_code=413, detail="Text too large (max 500 KB).")
-    if len(password) > 50:
-        raise HTTPException(status_code=422, detail="Password too long (max 50 chars).")
+    if not verifier_blob or not auth_anchor or not salt:
+        raise HTTPException(status_code=422, detail="Auth payload missing.")
+    # auth_anchor is a sha256 hex digest: 64 hex chars.
+    if len(auth_anchor) != 64 or not all(c in "0123456789abcdef" for c in auth_anchor):
+        raise HTTPException(status_code=422, detail="Malformed auth anchor.")
+    # salt is client-generated random base64. Reject obviously bogus lengths.
+    if len(salt) < 16 or len(salt) > 64:
+        raise HTTPException(status_code=422, detail="Malformed salt.")
 
-    sid, key = await sess.create_session(
-        first_item=text,
-        password=password,
+    sid = await sess.create_session(
+        first_item_ct=first_item_ct,
+        first_item_size=int(first_item_size),
+        has_password=has_password,
+        salt=salt,
+        verifier_blob=verifier_blob,
+        auth_anchor=auth_anchor,
         secure_mode=secure_mode,
         secret=secret,
     )
 
-    response = RedirectResponse(url=f"/{sid}", status_code=status.HTTP_303_SEE_OTHER)
-    _set_session_cookies(response, sid, key)
+    # JSON instead of redirect: the client needs to stash the derived key in
+    # sessionStorage under the freshly returned sid before navigating.
+    response = JSONResponse({"ok": True, "sid": sid, "redirect": f"/{sid}"})
+    _set_token_cookie(response, sid)
     _set_language_cookie(response, _get_language(request))
     return response
 
 
 # ---------------------------------------------------------------------------
-# GET /{sid} — Session page
+# GET /{sid} — Session page or auth handshake
 # ---------------------------------------------------------------------------
 
 @app.get("/{sid}", response_class=HTMLResponse)
@@ -356,7 +357,12 @@ async def session_page(request: Request, sid: str):
     if not await sess.session_exists(sid):
         return _render_template(request, "not_found.html", {"sid": sid}, status_code=404)
 
-    if await _is_authenticated(request, sid):
+    # ?reauth=1 forces the auth handshake even when the token cookie is valid.
+    # Used by the client when sessionStorage lost the key (tab was closed and
+    # reopened) but the cookie is still there — derive again before reading.
+    force_reauth = request.query_params.get("reauth") == "1"
+
+    if _has_valid_token(request, sid) and not force_reauth:
         js_i18n = {
             key: _tr(_get_language(request), key)
             for key in (
@@ -411,27 +417,44 @@ async def session_page(request: Request, sid: str):
                 "js_i18n": js_i18n,
             },
         )
-        await _refresh_session_cookies(response, request, sid)
+        await _refresh_token_cookie(response, request, sid)
         return response
 
-    return _render_template(request, "auth.html", {"sid": sid})
+    has_password = await sess.session_has_password(sid)
+    return _render_template(request, "auth.html", {"sid": sid, "has_password": has_password})
 
 
 # ---------------------------------------------------------------------------
-# POST /{sid}/auth — Authenticate
+# GET /{sid}/verifier — Public: ciphertext verifier blob for client handshake
+# ---------------------------------------------------------------------------
+
+@app.get("/{sid}/verifier")
+async def get_verifier(sid: str):
+    if await sess.session_is_locked(sid):
+        raise HTTPException(status_code=410, detail="Session locked.")
+    if not await sess.session_exists(sid):
+        raise HTTPException(status_code=404, detail="Session not found.")
+    blob = await sess.get_verifier_blob(sid)
+    salt = await sess.get_salt(sid)
+    if not blob or not salt:
+        raise HTTPException(status_code=404, detail="No verifier stored.")
+    has_password = await sess.session_has_password(sid)
+    return JSONResponse({"verifier": blob, "salt": salt, "has_password": has_password})
+
+
+# ---------------------------------------------------------------------------
+# POST /{sid}/auth — Verify auth_proof, issue signed token
 # ---------------------------------------------------------------------------
 
 @app.post("/{sid}/auth")
 async def authenticate(
     request: Request,
     sid: str,
-    password: Annotated[str, Form()] = "",
+    auth_proof: Annotated[str, Form()],
+    pow_challenge: Annotated[str, Form()],
+    pow_nonce: Annotated[str, Form()],
 ):
-    ip = get_client_ip(request)
-
-    banned, ban_type = await sec.is_banned(ip)
-    if banned:
-        raise HTTPException(status_code=429, detail=f"IP {ban_type}-banned.")
+    await _enforce_pow(pow_challenge, pow_nonce)
 
     if await sess.session_is_locked(sid):
         raise HTTPException(status_code=410, detail="Session locked.")
@@ -439,130 +462,109 @@ async def authenticate(
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session not found.")
 
-    key = await sess.verify_password(sid, password)
+    if await sess.verify_auth_proof(sid, auth_proof):
+        await sec.clear_failed_auth(sid)
+        response = JSONResponse({"ok": True, "redirect": f"/{sid}"})
+        _set_token_cookie(response, sid)
+        _set_language_cookie(response, _get_language(request))
+        return response
 
-    if key is None:
-        if await sess.session_is_locked(sid):
-            return JSONResponse(
-                {"error": "session_locked"},
-                status_code=410,
-            )
-        banned_now, ban_type = await sec.check_and_record_attempt(ip)
-        remaining = await sec.get_attempts_remaining(ip)
-        if banned_now:
-            return JSONResponse({"error": "ip_banned", "ban_type": ban_type}, status_code=429)
-        return JSONResponse({"error": "wrong_password", "attempts_remaining": remaining}, status_code=401)
-
-    await sec.record_success(ip)
-    # NB: we intentionally do NOT call touch_session here. Auth is a read
-    # operation that proves you know the password — it must not extend the
-    # session lifetime. Only write actions (add_item, save_file) refresh
-    # the TTL; otherwise anyone with the password could keep a session
-    # alive indefinitely by re-authenticating every ~2 hours.
-    response = RedirectResponse(url=f"/{sid}", status_code=status.HTTP_303_SEE_OTHER)
-    _set_session_cookies(response, sid, key)
-    _set_language_cookie(response, _get_language(request))
-    return response
+    failures = await sec.record_failed_auth(sid)
+    if await sec.session_should_lock(sid):
+        await sess.lock_session_forever(sid)
+        return JSONResponse({"error": "session_locked"}, status_code=410)
+    return JSONResponse({"error": "wrong_password", "failures": failures}, status_code=401)
 
 
 # ---------------------------------------------------------------------------
-# GET /{sid}/items — Fetch decrypted items (authenticated, password from cookie)
+# GET /{sid}/contents — All ciphertext blobs (authenticated)
 # ---------------------------------------------------------------------------
-
-@app.get("/{sid}/items")
-async def get_items(request: Request, sid: str):
-    if not await _is_authenticated(request, sid):
-        raise HTTPException(status_code=401, detail="Not authenticated.")
-    if await sess.session_is_locked(sid):
-        raise HTTPException(status_code=410, detail="Session locked.")
-    if not await sess.session_exists(sid):
-        raise HTTPException(status_code=404, detail="Session expired.")
-
-    key = _get_key(request, sid)
-    items = await sess.get_items(sid, key)
-    response = JSONResponse({"items": items})
-    await _refresh_session_cookies(response, request, sid)
-    return response
-
 
 @app.get("/{sid}/contents")
 async def get_contents(request: Request, sid: str):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
     if await sess.session_is_locked(sid):
         raise HTTPException(status_code=410, detail="Session locked.")
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session expired.")
 
-    key = _get_key(request, sid)
-    contents = await sess.get_session_contents(sid, key)
+    contents = await sess.get_session_contents(sid)
     response = JSONResponse(contents)
-    await _refresh_session_cookies(response, request, sid)
+    await _refresh_token_cookie(response, request, sid)
     return response
 
 
 # ---------------------------------------------------------------------------
-# POST /{sid}/add — Add item (password from cookie)
+# POST /{sid}/items — Add ciphertext item
 # ---------------------------------------------------------------------------
 
-@app.post("/{sid}/add")
+@app.post("/{sid}/items")
 async def add_item(
     request: Request,
     sid: str,
-    text: Annotated[str, Form()],
+    ciphertext: Annotated[str, Form()],
+    plain_size: Annotated[int, Form()],
     secret: Annotated[bool, Form()] = False,
 ):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
     if await sess.session_is_locked(sid):
         raise HTTPException(status_code=410, detail="Session locked.")
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session expired.")
 
-    text = text.strip()
-    if not text:
-        raise HTTPException(status_code=422, detail="Text cannot be empty.")
-    if len(text) > 500_000:
+    await _enforce_write_quota(request.cookies.get(_token_cookie(sid), ""))
+
+    if not ciphertext or plain_size <= 0:
+        raise HTTPException(status_code=422, detail="Ciphertext is required.")
+    if plain_size > 500_000:
         raise HTTPException(status_code=413, detail="Text too large.")
 
-    key = _get_key(request, sid)
-    await sess.add_item(sid, text, key, secret=secret)
+    await sess.add_item(sid, ciphertext, int(plain_size), secret=secret)
     response = JSONResponse({"ok": True})
-    await _refresh_session_cookies(response, request, sid)
+    await _refresh_token_cookie(response, request, sid)
     return response
 
+
+# ---------------------------------------------------------------------------
+# POST /{sid}/upload — Encrypted file upload
+# ---------------------------------------------------------------------------
 
 @app.post("/{sid}/upload")
 async def upload_file(
     request: Request,
     sid: str,
+    encrypted_name: Annotated[str, Form()],
+    plain_size: Annotated[int, Form()],
     file: UploadFile = File(...),
+    thumb: Optional[UploadFile] = File(None),
 ):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
     if await sess.session_is_locked(sid):
         raise HTTPException(status_code=410, detail="Session locked.")
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session expired.")
-    if not file.filename:
-        raise HTTPException(status_code=422, detail="Filename is required.")
 
-    ip = get_client_ip(request)
-    allowed, retry_after = await sec.check_action_quota(
-        ip, "upload", UPLOAD_RATE_LIMIT_MAX, UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
-    )
-    if not allowed:
-        raise HTTPException(
-            status_code=429,
-            detail="Upload rate limit exceeded for this IP. Try again later.",
-            headers={"Retry-After": str(retry_after)},
-        )
+    await _enforce_write_quota(request.cookies.get(_token_cookie(sid), ""))
+
+    if not encrypted_name:
+        raise HTTPException(status_code=422, detail="Encrypted name is required.")
 
     payload = await _read_upload_bytes(file)
-    key = _get_key(request, sid)
+    thumb_payload: Optional[bytes] = None
+    if thumb is not None:
+        thumb_payload = await _read_upload_bytes(thumb, allow_empty=True) or None
 
     try:
-        saved = await sess.save_file(sid, file.filename, payload, key)
+        saved = await sess.save_file(
+            sid,
+            encrypted_name=encrypted_name,
+            plain_size=int(plain_size),
+            ciphertext=payload,
+            thumb_ciphertext=thumb_payload,
+        )
     except ValueError as exc:
         message = str(exc)
         if message == "File too large.":
@@ -589,77 +591,81 @@ async def upload_file(
         raise HTTPException(status_code=422, detail=message) from exc
 
     response = JSONResponse({"ok": True, "file": saved})
-    await _refresh_session_cookies(response, request, sid)
+    await _refresh_token_cookie(response, request, sid)
     return response
 
 
+# ---------------------------------------------------------------------------
+# GET /{sid}/files/{file_id} — Ciphertext file body (binary)
+# ---------------------------------------------------------------------------
+
 @app.get("/{sid}/files/{file_id}")
 async def download_file(request: Request, sid: str, file_id: str):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
     if await sess.session_is_locked(sid):
         raise HTTPException(status_code=410, detail="Session locked.")
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session expired.")
 
-    key = _get_key(request, sid)
     try:
-        filename, data = await sess.get_file_download(sid, file_id, key)
+        encrypted_name, ciphertext = await sess.get_file_ciphertext(sid, file_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="File not found.") from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail="Could not decrypt file.") from exc
 
-    safe_name = filename.replace('"', "")
+    # The encrypted_name is itself an AES-GCM token (base64-safe ASCII), so
+    # putting it in a custom response header is fine — but to keep the wire
+    # format trivial we URL-encode it just in case.
+    safe_name_header = base64.urlsafe_b64encode(encrypted_name.encode("utf-8")).decode("ascii")
     response = StreamingResponse(
-        BytesIO(data),
+        BytesIO(ciphertext),
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        headers={
+            "X-Clip-Encrypted-Name": safe_name_header,
+            "Cache-Control": "private, no-store",
+        },
     )
-    await _refresh_session_cookies(response, request, sid)
+    await _refresh_token_cookie(response, request, sid)
     return response
 
 
 # ---------------------------------------------------------------------------
-# GET /{sid}/files/{file_id}/thumb — Inline JPEG thumbnail preview
+# GET /{sid}/files/{file_id}/thumb — Ciphertext thumbnail bytes
 # ---------------------------------------------------------------------------
 
 @app.get("/{sid}/files/{file_id}/thumb")
 async def download_thumb(request: Request, sid: str, file_id: str):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
     if await sess.session_is_locked(sid):
         raise HTTPException(status_code=410, detail="Session locked.")
     if not await sess.session_exists(sid):
         raise HTTPException(status_code=404, detail="Session expired.")
 
-    key = _get_key(request, sid)
     try:
-        data = await sess.get_thumb_download(sid, file_id, key)
+        data = await sess.get_thumb_ciphertext(sid, file_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="File not found.") from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail="Could not decrypt thumb.") from exc
 
     if data is None:
         raise HTTPException(status_code=404, detail="No thumbnail.")
 
     response = StreamingResponse(
         BytesIO(data),
-        media_type="image/jpeg",
-        headers={"Cache-Control": "private, max-age=3600"},
+        media_type="application/octet-stream",
+        headers={"Cache-Control": "private, no-store"},
     )
-    await _refresh_session_cookies(response, request, sid)
+    await _refresh_token_cookie(response, request, sid)
     return response
 
 
 # ---------------------------------------------------------------------------
-# POST /{sid}/items/{item_id}/delete — Delete a single text item
+# POST /{sid}/items/{item_id}/delete
 # ---------------------------------------------------------------------------
 
 @app.post("/{sid}/items/{item_id}/delete")
 async def delete_item_endpoint(request: Request, sid: str, item_id: str):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
     if await sess.session_is_locked(sid):
         raise HTTPException(status_code=410, detail="Session locked.")
@@ -671,17 +677,17 @@ async def delete_item_endpoint(request: Request, sid: str, item_id: str):
         raise HTTPException(status_code=404, detail="Item not found.")
 
     response = JSONResponse({"ok": True})
-    await _refresh_session_cookies(response, request, sid)
+    await _refresh_token_cookie(response, request, sid)
     return response
 
 
 # ---------------------------------------------------------------------------
-# POST /{sid}/files/{file_id}/delete — Delete a single file
+# POST /{sid}/files/{file_id}/delete
 # ---------------------------------------------------------------------------
 
 @app.post("/{sid}/files/{file_id}/delete")
 async def delete_file_endpoint(request: Request, sid: str, file_id: str):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
     if await sess.session_is_locked(sid):
         raise HTTPException(status_code=410, detail="Session locked.")
@@ -693,35 +699,35 @@ async def delete_file_endpoint(request: Request, sid: str, file_id: str):
         raise HTTPException(status_code=404, detail="File not found.")
 
     response = JSONResponse({"ok": True})
-    await _refresh_session_cookies(response, request, sid)
+    await _refresh_token_cookie(response, request, sid)
     return response
 
 
 # ---------------------------------------------------------------------------
-# POST /{sid}/wipe — Delete session immediately (authenticated)
+# POST /{sid}/wipe
 # ---------------------------------------------------------------------------
 
 @app.post("/{sid}/wipe")
 async def wipe_session(request: Request, sid: str):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
 
     await sess.delete_session(sid, wiped=True)
     response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-    _clear_session_cookies(response, sid)
+    _clear_token_cookie(response, sid)
     _set_language_cookie(response, _get_language(request))
     return response
 
 
 # ---------------------------------------------------------------------------
-# GET /{sid}/stream — Server-Sent Events (live push, authenticated)
+# GET /{sid}/stream — SSE
 # ---------------------------------------------------------------------------
 
 HEARTBEAT_INTERVAL = 25
 
 @app.get("/{sid}/stream")
 async def sse_stream(request: Request, sid: str):
-    if not await _is_authenticated(request, sid):
+    if not _has_valid_token(request, sid):
         raise HTTPException(status_code=401, detail="Not authenticated.")
 
     async def event_generator():
@@ -774,5 +780,5 @@ async def sse_stream(request: Request, sid: str):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-    await _refresh_session_cookies(response, request, sid)
+    await _refresh_token_cookie(response, request, sid)
     return response

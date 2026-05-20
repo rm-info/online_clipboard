@@ -9,81 +9,130 @@
 
   <div id="errorBox" style="display:none; margin-bottom:14px;"></div>
 
+  {% if has_password %}
   <div class="field">
     <label for="password">{{ tr.password }}</label>
     <input type="password" id="password" placeholder="{{ tr.enter_session_password }}" autocomplete="current-password" autofocus>
   </div>
+  {% endif %}
+
+  <div id="authStatus" class="muted" style="margin: 6px 0 10px; min-height: 1.2em; font-size: .88rem;"></div>
 
   <div class="flex-row flex-end">
     <a href="/" class="btn btn-ghost">{{ icon_arrow_left() }}<span class="btn-label">{{ tr.new_session }}</span></a>
-    <button class="btn btn-primary" id="authBtn" onclick="doAuth()">{{ icon_arrow_right() }}<span class="btn-label">{{ tr.submit }}</span></button>
+    <button class="btn btn-primary" id="authBtn">{{ icon_arrow_right() }}<span class="btn-label">{{ tr.submit }}</span></button>
   </div>
 </div>
 
 <script>
   const sid = {{ sid | tojson }};
-  const tr = {{ tr | tojson }};
+  const tr  = {{ tr | tojson }};
+  const HAS_PASSWORD = {{ has_password | tojson }};
+
+  function showError(msg, cls) {
+    const box = document.getElementById('errorBox');
+    box.className = `alert ${cls || 'alert-danger'}`;
+    box.textContent = msg;
+    box.style.display = 'block';
+  }
+  function clearError() {
+    document.getElementById('errorBox').style.display = 'none';
+  }
+  function setStatus(msg) {
+    document.getElementById('authStatus').textContent = msg || '';
+  }
 
   async function doAuth() {
     const btn = document.getElementById('authBtn');
-    const pwd = document.getElementById('password').value;
-    const errorBox = document.getElementById('errorBox');
+    const labelEl = btn.querySelector('.btn-label');
+    const pwd = HAS_PASSWORD ? (document.getElementById('password').value || '') : '';
 
     btn.disabled = true;
-    btn.querySelector('.btn-label').textContent = tr.checking;
-    errorBox.style.display = 'none';
-
-    const body = new URLSearchParams({ password: pwd });
+    labelEl.textContent = tr.checking;
+    clearError();
 
     try {
+      if (!window.ClipCrypto) throw new Error(tr.browser_unsupported);
+
+      // 1. Fetch the encrypted verifier + the salt the session was created with.
+      setStatus(tr.loading);
+      const vres = await fetch(`/${sid}/verifier`);
+      if (vres.status === 410) { showError(tr.session_locked_error); return; }
+      if (!vres.ok) throw new Error(`HTTP ${vres.status}`);
+      const { verifier, salt } = await vres.json();
+
+      // 2. Derive the candidate key in-browser.
+      setStatus(tr.key_derivation_progress);
+      const key = await window.ClipCrypto.deriveKey(pwd, salt);
+
+      // 3. Try to decrypt the verifier. Failure → wrong password (server
+      //    isn't even contacted for the auth attempt yet).
+      let plain;
+      try {
+        setStatus(tr.decrypting_progress);
+        plain = await window.ClipCrypto.decryptString(verifier, key);
+      } catch (_) {
+        showError(tr.decryption_failed);
+        return;
+      }
+
+      // 4. Compute the anchor proof + solve a PoW so the server-side counter
+      //    bumps cost-per-attempt and we don't hand a free oracle to bots.
+      const authProof = await window.ClipCrypto.sha256Hex(plain);
+      setStatus(tr.pow_progress);
+      const ch  = await fetch('/pow/challenge').then(r => r.json());
+      const sol = await window.ClipCrypto.solvePow(ch.challenge, ch.difficulty);
+
+      // 5. Submit. On success the server sets the signed-token cookie.
+      const body = new URLSearchParams({
+        auth_proof:    authProof,
+        pow_challenge: ch.challenge,
+        pow_nonce:     sol.nonce,
+      });
       const res = await fetch(`/${sid}/auth`, {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        redirect: 'follow',
+        credentials: 'same-origin',
       });
 
-      if (res.ok || res.redirected) {
-        window.location.href = res.url || `/${sid}`;
+      if (res.ok) {
+        await window.ClipKeystore.store(sid, key);
+        const data = await res.json().catch(() => ({}));
+        window.location.href = data.redirect || `/${sid}`;
         return;
       }
 
       const data = await res.json().catch(() => ({}));
-
-      if (res.status === 410) {
-        errorBox.className = 'alert alert-danger';
-        errorBox.textContent = tr.session_locked_error;
-        errorBox.style.display = 'block';
-        btn.disabled = true;
-        return;
-      }
-
-      if (res.status === 429) {
-        const type = data.ban_type === 'perm' ? tr.ban_type_perm : tr.ban_type_temp;
-        errorBox.className = 'alert alert-danger';
-        errorBox.textContent = tr.ip_banned_error.replace('{type}', type);
-        errorBox.style.display = 'block';
-        btn.disabled = true;
-        return;
-      }
-
+      if (res.status === 410) { showError(tr.session_locked_error); btn.disabled = true; return; }
       if (res.status === 401) {
-        errorBox.className = 'alert alert-danger';
-        errorBox.textContent = tr.wrong_password_error.replace('{remaining}', data.attempts_remaining ?? '?');
-        errorBox.style.display = 'block';
+        showError(tr.wrong_password_error.replace('{failures}', data.failures ?? '?'));
+        return;
       }
+      throw new Error(data.detail || `HTTP ${res.status}`);
     } catch (err) {
-      errorBox.className = 'alert alert-warn';
-      errorBox.textContent = tr.network_error;
-      errorBox.style.display = 'block';
+      console.error(err);
+      showError(tr.network_error, 'alert-warn');
+    } finally {
+      setStatus('');
+      btn.disabled = false;
+      labelEl.textContent = tr.submit;
     }
-
-    btn.disabled = false;
-    btn.querySelector('.btn-label').textContent = tr.submit;
   }
 
+  document.getElementById('authBtn').addEventListener('click', doAuth);
   document.getElementById('password')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') doAuth();
   });
+
+  // Passwordless sessions: kick off the handshake on load. The flow is the
+  // same — the empty password still goes through Argon2id and the verifier
+  // still has to decrypt correctly.
+  if (!HAS_PASSWORD) {
+    document.addEventListener('DOMContentLoaded', () => {
+      // Wait one tick so the deferred crypto bundles are guaranteed available.
+      setTimeout(doAuth, 0);
+    });
+  }
 </script>
 {% endblock %}

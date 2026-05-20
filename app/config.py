@@ -16,8 +16,10 @@ def _require_env(key: str, min_len: int = 1) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Server secret (pepper for encryption)
+# Server secret — HMAC key for signed write-tokens (E2EE mode)
 # ---------------------------------------------------------------------------
+# Repurposed from the v1 Argon2id pepper: with E2EE the server no longer
+# derives keys, but it still needs a private secret to sign session tokens.
 SERVER_SECRET: bytes = bytes.fromhex(
     _require_env("CLIPBOARD_SERVER_SECRET", min_len=64)
 )
@@ -47,31 +49,33 @@ CLEANUP_INTERVAL_SECONDS: int = int(os.environ.get("CLEANUP_INTERVAL_SECONDS", 6
 HEALTHZ_WARN_RATIO: float = float(os.environ.get("HEALTHZ_WARN_RATIO", 0.8))
 UPLOAD_ROOT: str = os.environ.get("UPLOAD_ROOT", "/tmp/online_clipboard_uploads")
 
-# ---------------------------------------------------------------------------
-# Rate limiting
-# ---------------------------------------------------------------------------
-RATE_LIMIT_MAX_ATTEMPTS: int = int(os.environ.get("RATE_LIMIT_MAX_ATTEMPTS", 10))
-RATE_LIMIT_WINDOW_SECONDS: int = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", 300))   # 5 min
-RATE_LIMIT_BAN_SECONDS: int = int(os.environ.get("RATE_LIMIT_BAN_SECONDS", 3600))        # 1 hour temp ban
-RATE_LIMIT_PERM_BAN_THRESHOLD: int = int(os.environ.get("RATE_LIMIT_PERM_BAN_THRESHOLD", 3))  # temp bans before perma
-
-# Max failed attempts on a single session before it's locked forever
+# Max failed auth proofs against a single session before it's locked forever.
+# Per-session, not per-IP — IP tracking is gone in E2EE/anon mode.
 SESSION_MAX_FAILED_ATTEMPTS: int = int(os.environ.get("SESSION_MAX_FAILED_ATTEMPTS", 20))
 
-# Per-IP quotas on POST / and POST /{sid}/upload. Set max <= 0 to disable.
-CREATE_RATE_LIMIT_MAX: int = int(os.environ.get("CREATE_RATE_LIMIT_MAX", 30))
-CREATE_RATE_LIMIT_WINDOW_SECONDS: int = int(
-    os.environ.get("CREATE_RATE_LIMIT_WINDOW_SECONDS", 3600)
-)
-UPLOAD_RATE_LIMIT_MAX: int = int(os.environ.get("UPLOAD_RATE_LIMIT_MAX", 60))
-UPLOAD_RATE_LIMIT_WINDOW_SECONDS: int = int(
-    os.environ.get("UPLOAD_RATE_LIMIT_WINDOW_SECONDS", 3600)
+# ---------------------------------------------------------------------------
+# Proof-of-Work (replaces per-IP rate limiting for anonymous endpoints)
+# ---------------------------------------------------------------------------
+# Bits of leading zeros required in SHA256(challenge||nonce). 18 ≈ 0.5s on a
+# modern CPU; tune upward if abuse becomes a problem.
+POW_DIFFICULTY_BITS: int = int(os.environ.get("POW_DIFFICULTY_BITS", 18))
+# Seconds a challenge stays valid in Redis before it must be re-issued.
+POW_CHALLENGE_TTL_SECONDS: int = int(os.environ.get("POW_CHALLENGE_TTL_SECONDS", 120))
+
+# ---------------------------------------------------------------------------
+# Per-token write quotas (replaces per-IP create/upload limits)
+# ---------------------------------------------------------------------------
+# A bucket keyed by the signed token, not the IP. Caps abuse per browser
+# session. Set max <= 0 to disable.
+WRITE_RATE_LIMIT_MAX: int = int(os.environ.get("WRITE_RATE_LIMIT_MAX", 240))
+WRITE_RATE_LIMIT_WINDOW_SECONDS: int = int(
+    os.environ.get("WRITE_RATE_LIMIT_WINDOW_SECONDS", 3600)
 )
 
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-APP_VERSION: str = os.environ.get("APP_VERSION", "1.4.0")
+APP_VERSION: str = os.environ.get("APP_VERSION", "2.0.0")
 
 # SSE (Server-Sent Events) for real-time sync.
 # Set to false on shared hosting (Passenger queue saturation).
