@@ -285,10 +285,10 @@
     function extractSid(raw) {
       const value = raw.trim();
       if (!value) return '';
-      // If it looks like a URL or starts with "/", pull the last path segment.
-      // The URL constructor tolerates either absolute URLs or paths thanks
-      // to the second arg providing a base.
-      if (value.includes('://') || value.startsWith('/')) {
+      // Anything containing "/" might be a URL, an absolute path, or a
+      // scheme-less host+path like "clipboard.lab.rm-info.fr/abc12". The
+      // URL constructor with a base resolves all three to a usable pathname.
+      if (value.includes('/')) {
         try {
           const u = new URL(value, window.location.origin);
           return (u.pathname.split('/').filter(Boolean).pop() || '');
