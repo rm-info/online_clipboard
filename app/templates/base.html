@@ -36,6 +36,15 @@
 {%- macro icon_help() -%}
 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
 {%- endmacro -%}
+{%- macro icon_terminal() -%}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+{%- endmacro -%}
+{%- macro icon_download() -%}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg>
+{%- endmacro -%}
+{%- macro icon_external_link() -%}
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+{%- endmacro -%}
 <!DOCTYPE html>
 <html lang="{{ lang }}">
 <head>
@@ -162,6 +171,13 @@
       font-size: .78rem;
       letter-spacing: .18em;
       text-transform: uppercase;
+      text-decoration: none;
+      transition: opacity .12s;
+    }
+    a.header-logo:hover,
+    a.header-logo:focus-visible {
+      opacity: .75;
+      outline: none;
     }
     .header-logo::before {
       content: '';
@@ -768,7 +784,7 @@
   <div class="shell">
     <header class="header">
       <div class="header-brand">
-        <div class="header-logo">{{ tr.app_name }}</div>
+        <a class="header-logo" href="/">{{ tr.app_name }}</a>
         <div class="header-title">{% block header_title %}Clipboard{% endblock %}</div>
         {% block header_sub %}<div class="header-sub"></div>{% endblock %}
       </div>
@@ -790,6 +806,11 @@
                 aria-label="{{ tr.privacy_button_label }}">
           {{ icon_cookie() }}
         </button>
+        <a class="icon-btn icon-btn-info" href="/cli"
+           title="{{ tr.cli_button_label }}"
+           aria-label="{{ tr.cli_button_label }}">
+          {{ icon_terminal() }}
+        </a>
         {% block header_extras %}{% endblock %}
       </div>
     </header>

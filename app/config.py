@@ -75,7 +75,7 @@ WRITE_RATE_LIMIT_WINDOW_SECONDS: int = int(
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-APP_VERSION: str = os.environ.get("APP_VERSION", "2.3.0")
+APP_VERSION: str = os.environ.get("APP_VERSION", "2.4.0")
 # Short git commit injected at docker build time via APP_COMMIT build arg.
 # Empty in dev builds. Shown in the About modal and used as the PWA cache buster.
 APP_COMMIT: str = os.environ.get("APP_COMMIT", "")
@@ -98,11 +98,23 @@ CLI_DOWNLOAD_URL_TEMPLATE: str = os.environ.get(
     "CLI_DOWNLOAD_URL_TEMPLATE",
     "https://github.com/rm-info/online_clipboard_cli/releases/latest/download/clibo-{platform}",
 )
-# /install.sh 302-redirects here. Points at the script versioned with the CLI
-# tool so install behavior changes ship with the CLI, not the web server.
+# /install.sh and /install.ps1 302-redirect here. Scripts live in the CLI repo
+# so install behavior ships with the CLI, not the web server.
 CLI_INSTALL_SCRIPT_URL: str = os.environ.get(
     "CLI_INSTALL_SCRIPT_URL",
     "https://raw.githubusercontent.com/rm-info/online_clipboard_cli/main/install.sh",
+)
+CLI_INSTALL_SCRIPT_PS1_URL: str = os.environ.get(
+    "CLI_INSTALL_SCRIPT_PS1_URL",
+    "https://raw.githubusercontent.com/rm-info/online_clipboard_cli/main/install.ps1",
+)
+# Set INSTANCE_IS_DEMO=true on the canonical hosted instance to surface a
+# "demo, use sparingly, self-host for production" notice on /cli. Default off
+# so forks don't accidentally claim to be a demo for someone else.
+INSTANCE_IS_DEMO: bool = os.environ.get("INSTANCE_IS_DEMO", "false").lower() == "true"
+SERVER_REPO_URL: str = os.environ.get(
+    "SERVER_REPO_URL",
+    "https://github.com/rm-info/online_clipboard",
 )
 # Repo URL surfaced on the /cli page for full documentation.
 CLI_REPO_URL: str = os.environ.get(

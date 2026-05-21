@@ -255,9 +255,15 @@ deploy automatically refreshes the cached bundle on the user's next visit.
 | `POW_CHALLENGE_TTL_SECONDS` | `120` | How long the client has to solve a challenge |
 | `WRITE_RATE_LIMIT_MAX` | `240` | Per-token writes allowed in `WRITE_RATE_LIMIT_WINDOW_SECONDS`. Set ≤ 0 to disable. |
 | `WRITE_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window for the per-token write quota (1 hour) |
-| `APP_VERSION` | `2.1.0` | Version displayed in the footer |
+| `APP_VERSION` | `2.4.0` | Version displayed in the footer |
 | `APP_COMMIT` | *(empty)* | Short git commit shown in About modal; also used as the PWA cache buster |
 | `DEBUG` | `false` | Enable FastAPI debug mode and `/docs` endpoint |
+| `CLI_DOWNLOAD_URL_TEMPLATE` | GitHub release URL for `clibo-{platform}` | `/cli/{platform}` 302s here. Override for forks. |
+| `CLI_INSTALL_SCRIPT_URL` | `raw.githubusercontent.com/.../install.sh` | `/install.sh` 302s here. |
+| `CLI_INSTALL_SCRIPT_PS1_URL` | `raw.githubusercontent.com/.../install.ps1` | `/install.ps1` 302s here. |
+| `CLI_REPO_URL` | `https://github.com/rm-info/online_clipboard_cli` | "Open the README" target on `/cli`. |
+| `SERVER_REPO_URL` | `https://github.com/rm-info/online_clipboard` | Self-host link target in the demo notice. |
+| `INSTANCE_IS_DEMO` | `false` | Set to `true` on a hosted demo instance to surface a "use sparingly, self-host for production" notice on `/cli`. |
 
 ---
 
