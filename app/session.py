@@ -585,7 +585,11 @@ async def get_session_contents(sid: str) -> dict:
             entries.append(file_entries[entry_id])
 
     file_bytes = await get_session_file_bytes(sid)
-    return {"entries": entries, "file_bytes": file_bytes}
+    # expires_at lets clients (CLI, future SDKs) display the real session TTL
+    # without inferring it from cookie max-age, which slides on every authenticated
+    # request including reads and doesn't track session lifetime accurately.
+    expires_at = await get_session_expires_at(sid)
+    return {"entries": entries, "file_bytes": file_bytes, "expires_at": expires_at or 0}
 
 
 async def get_file_ciphertext(sid: str, file_id: str) -> tuple[str, bytes]:
