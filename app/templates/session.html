@@ -125,7 +125,7 @@
   <main class="feed-col">
     <div class="hero-stack">
       <div class="url-box">
-        <span class="url-text" id="sessionUrl"></span>
+        <span class="url-text" id="sessionSid" title="{{ sid }}">{{ sid }}</span>
         <div class="topline-actions">
           <button class="icon-btn" id="qrBtn" type="button" aria-label="{{ tr.qr_button_label }}" aria-haspopup="dialog" aria-controls="qrModal" title="{{ tr.qr_button_label }}">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -289,13 +289,23 @@
   let lastEntries = [];        // most recent decrypted entries (memoization for SSE deltas)
   const thumbUrlCache = new Map(); // fileId -> object URL (revoked on session end)
 
-  function truncateUrl(url) {
-    const MAX_LEN = 27;
-    if (url.length <= MAX_LEN) return url;
-    const head = 17, tail = MAX_LEN - 5 - head;
-    return url.slice(0, head) + '[...]' + url.slice(-tail);
+  // Display only the session ID (not the full URL): the URL prefix is
+  // redundant noise once you're on the page. CSS already ellipsis-truncates
+  // overflow as a safety net; this loop does mid-truncation that keeps both
+  // ends of long IDs visible (useful for 50-char extended SIDs on mobile).
+  const sidEl = document.getElementById('sessionSid');
+  const sidFull = sidEl.textContent;
+  function renderSid() {
+    sidEl.textContent = sidFull;
+    if (sidEl.scrollWidth <= sidEl.clientWidth) return;
+    const tail = 6;
+    for (let head = sidFull.length - tail - 1; head >= 4; head--) {
+      sidEl.textContent = sidFull.slice(0, head) + '…' + sidFull.slice(-tail);
+      if (sidEl.scrollWidth <= sidEl.clientWidth) return;
+    }
   }
-  document.getElementById('sessionUrl').textContent = truncateUrl(sessionUrl);
+  renderSid();
+  window.addEventListener('resize', renderSid);
 
   function formatSize(bytes) {
     if (bytes === 0) return '0 B';
