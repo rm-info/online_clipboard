@@ -75,7 +75,7 @@ WRITE_RATE_LIMIT_WINDOW_SECONDS: int = int(
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-APP_VERSION: str = os.environ.get("APP_VERSION", "2.1.4")
+APP_VERSION: str = os.environ.get("APP_VERSION", "2.2.0")
 # Short git commit injected at docker build time via APP_COMMIT build arg.
 # Empty in dev builds. Shown in the About modal and used as the PWA cache buster.
 APP_COMMIT: str = os.environ.get("APP_COMMIT", "")
@@ -88,3 +88,13 @@ SSE_ENABLED: bool = os.environ.get("SSE_ENABLED", "true").lower() == "true"
 DEBUG: bool = os.environ.get("DEBUG", "false").lower() == "true"
 APP_HOST: str = os.environ.get("APP_HOST", "0.0.0.0")
 APP_PORT: int = int(os.environ.get("APP_PORT", 8000))
+
+# ---------------------------------------------------------------------------
+# CLI download redirect
+# ---------------------------------------------------------------------------
+# /cli/{platform} 302-redirects to this URL with {platform} substituted in.
+# Default points at the canonical CLI repo; override if you fork it.
+CLI_DOWNLOAD_URL_TEMPLATE: str = os.environ.get(
+    "CLI_DOWNLOAD_URL_TEMPLATE",
+    "https://github.com/rm-info/online_clipboard_cli/releases/latest/download/clibo-{platform}",
+)

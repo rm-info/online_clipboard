@@ -35,6 +35,7 @@ much a single browser session can spam.
 import asyncio
 import base64
 import hashlib
+import re
 import time
 from contextlib import asynccontextmanager
 from io import BytesIO
@@ -63,6 +64,7 @@ from config import (
     APP_BUILD_ID,
     APP_COMMIT,
     APP_VERSION,
+    CLI_DOWNLOAD_URL_TEMPLATE,
     DEBUG,
     FILE_MAX_SIZE_BYTES,
     HEALTHZ_WARN_RATIO,
@@ -335,6 +337,26 @@ async def healthz():
         "version": APP_VERSION,
     }
     return JSONResponse(payload, status_code=200 if healthy else 503)
+
+
+# ---------------------------------------------------------------------------
+# GET /cli/{platform} — Redirect to the latest CLI binary on GitHub Releases
+# ---------------------------------------------------------------------------
+# Stable origin-relative URL so the README's one-liner install never changes
+# when the CLI repo or release scheme moves. {platform} is passed through to
+# the GitHub asset name; unknown platforms 404 at GitHub, not here.
+
+_CLI_PLATFORM_RE = re.compile(r"^[a-z0-9._-]{1,40}$")
+
+
+@app.get("/cli/{platform}")
+async def cli_download(platform: str):
+    if not _CLI_PLATFORM_RE.match(platform):
+        raise HTTPException(status_code=404, detail="Unknown platform.")
+    return RedirectResponse(
+        url=CLI_DOWNLOAD_URL_TEMPLATE.format(platform=platform),
+        status_code=status.HTTP_302_FOUND,
+    )
 
 
 # ---------------------------------------------------------------------------
