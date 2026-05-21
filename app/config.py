@@ -75,7 +75,7 @@ WRITE_RATE_LIMIT_WINDOW_SECONDS: int = int(
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-APP_VERSION: str = os.environ.get("APP_VERSION", "2.2.0")
+APP_VERSION: str = os.environ.get("APP_VERSION", "2.3.0")
 # Short git commit injected at docker build time via APP_COMMIT build arg.
 # Empty in dev builds. Shown in the About modal and used as the PWA cache buster.
 APP_COMMIT: str = os.environ.get("APP_COMMIT", "")
@@ -90,11 +90,31 @@ APP_HOST: str = os.environ.get("APP_HOST", "0.0.0.0")
 APP_PORT: int = int(os.environ.get("APP_PORT", 8000))
 
 # ---------------------------------------------------------------------------
-# CLI download redirect
+# CLI distribution
 # ---------------------------------------------------------------------------
 # /cli/{platform} 302-redirects to this URL with {platform} substituted in.
 # Default points at the canonical CLI repo; override if you fork it.
 CLI_DOWNLOAD_URL_TEMPLATE: str = os.environ.get(
     "CLI_DOWNLOAD_URL_TEMPLATE",
     "https://github.com/rm-info/online_clipboard_cli/releases/latest/download/clibo-{platform}",
+)
+# /install.sh 302-redirects here. Points at the script versioned with the CLI
+# tool so install behavior changes ship with the CLI, not the web server.
+CLI_INSTALL_SCRIPT_URL: str = os.environ.get(
+    "CLI_INSTALL_SCRIPT_URL",
+    "https://raw.githubusercontent.com/rm-info/online_clipboard_cli/main/install.sh",
+)
+# Repo URL surfaced on the /cli page for full documentation.
+CLI_REPO_URL: str = os.environ.get(
+    "CLI_REPO_URL",
+    "https://github.com/rm-info/online_clipboard_cli",
+)
+# Platforms listed in the manual-download grid on /cli. Must match the asset
+# names in the CLI repo's release matrix (see its Makefile PLATFORMS var).
+CLI_PLATFORMS: tuple[str, ...] = (
+    "linux-amd64",
+    "linux-arm64",
+    "darwin-amd64",
+    "darwin-arm64",
+    "windows-amd64.exe",
 )

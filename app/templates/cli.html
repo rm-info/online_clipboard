@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.cli_title }} — Clipboard{% endblock %}
+{% block header_title %}{{ tr.cli_title }}{% endblock %}
+{% block header_sub %}<div class="header-sub">{{ tr.cli_subtitle }}</div>{% endblock %}
+
+{% block extra_head %}
+<style>
+  .cli-wrap { max-width: 760px; }
+  .cli-what { margin: 4px 0 18px; }
+
+  .code-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-deep, #0c0c0e);
+    border: 1px solid var(--border, #2a2a2e);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: .92rem;
+    overflow-x: auto;
+  }
+  .code-block code {
+    flex: 1;
+    white-space: nowrap;
+    color: var(--fg, #e6e6e6);
+  }
+  .code-block button { flex: 0 0 auto; }
+  .code-block .icon-check { display: none; }
+  .code-block button.copied .icon-copy { display: none; }
+  .code-block button.copied .icon-check { display: inline-block; }
+
+  .platform-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .platform-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border: 1px solid var(--border, #2a2a2e);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--fg, #e6e6e6);
+    font-family: var(--mono);
+    font-size: .9rem;
+    transition: border-color .12s, background .12s;
+  }
+  .platform-link:hover,
+  .platform-link:focus-visible {
+    border-color: var(--accent, #6aa9ff);
+    background: var(--bg-hover, rgba(255,255,255,.03));
+  }
+  .platform-link .arrow { opacity: .5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cli-wrap">
+
+  <div class="panel">
+    <div class="panel-label">{{ tr.cli_install_label }}</div>
+    <p class="cli-what muted">{{ tr.cli_what_is }}</p>
+
+    <div class="code-block">
+      <code id="installCmd">curl -sSL {{ base_url }}/install.sh | sh</code>
+      <button type="button" class="icon-btn" id="copyInstall"
+              title="{{ tr.copy }}" aria-label="{{ tr.copy }}">
+        <span class="icon-copy">{{ icon_copy() }}</span>
+        <span class="icon-check">{{ icon_check() }}</span>
+      </button>
+    </div>
+    <p class="muted" style="margin: 10px 0 0; font-size: .88rem;">{{ tr.cli_install_hint }}</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">{{ tr.cli_manual_label }}</div>
+    <div class="platform-grid">
+      {% for platform in platforms %}
+      <a class="platform-link" href="/cli/{{ platform }}" rel="noopener">
+        <span>clibo-{{ platform }}</span>
+        <span class="arrow">↓</span>
+      </a>
+      {% endfor %}
+    </div>
+    <p class="muted" style="margin: 12px 0 0; font-size: .88rem;">{{ tr.cli_manual_hint }}</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">{{ tr.cli_docs_label }}</div>
+    <p class="muted">{{ tr.cli_docs_text }}</p>
+    <a href="{{ cli_repo_url }}" class="btn btn-ghost" target="_blank" rel="noopener noreferrer">
+      <span class="btn-label">{{ tr.cli_docs_cta }}</span>
+    </a>
+  </div>
+
+</div>
+
+<script>
+  (() => {
+    const btn = document.getElementById('copyInstall');
+    const cmd = document.getElementById('installCmd');
+    if (!btn || !cmd || !navigator.clipboard) return;
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(cmd.textContent);
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 1200);
+      } catch (_) { /* user-rejected or insecure context */ }
+    });
+  })();
+</script>
+{% endblock %}

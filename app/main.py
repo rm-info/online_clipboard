@@ -65,6 +65,9 @@ from config import (
     APP_COMMIT,
     APP_VERSION,
     CLI_DOWNLOAD_URL_TEMPLATE,
+    CLI_INSTALL_SCRIPT_URL,
+    CLI_PLATFORMS,
+    CLI_REPO_URL,
     DEBUG,
     FILE_MAX_SIZE_BYTES,
     HEALTHZ_WARN_RATIO,
@@ -340,13 +343,35 @@ async def healthz():
 
 
 # ---------------------------------------------------------------------------
-# GET /cli/{platform} — Redirect to the latest CLI binary on GitHub Releases
+# CLI distribution — discovery page, install-script redirect, binary redirect
 # ---------------------------------------------------------------------------
-# Stable origin-relative URL so the README's one-liner install never changes
-# when the CLI repo or release scheme moves. {platform} is passed through to
-# the GitHub asset name; unknown platforms 404 at GitHub, not here.
+# All three routes are declared BEFORE the catch-all GET /{sid} below, so the
+# literal "/cli" and "/install.sh" paths take precedence over session lookup.
+# /cli/{platform} has two segments and would never collide, but it lives in
+# the same cluster for cohesion.
 
 _CLI_PLATFORM_RE = re.compile(r"^[a-z0-9._-]{1,40}$")
+
+
+@app.get("/cli", response_class=HTMLResponse)
+async def cli_page(request: Request):
+    return _render_template(
+        request,
+        "cli.html",
+        {
+            "base_url": str(request.base_url).rstrip("/"),
+            "platforms": CLI_PLATFORMS,
+            "cli_repo_url": CLI_REPO_URL,
+        },
+    )
+
+
+@app.get("/install.sh")
+async def install_script_redirect():
+    return RedirectResponse(
+        url=CLI_INSTALL_SCRIPT_URL,
+        status_code=status.HTTP_302_FOUND,
+    )
 
 
 @app.get("/cli/{platform}")
