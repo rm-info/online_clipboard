@@ -106,6 +106,39 @@
   .qr-canvas-wrap { display: flex; justify-content: center; padding: 12px; background: #fff; border-radius: var(--radius-sm); margin-bottom: 12px; }
   .qr-canvas-wrap canvas, .qr-canvas-wrap img { display: block; width: 100%; height: auto; max-width: 320px; image-rendering: pixelated; }
   .qr-url { word-break: break-all; text-align: center; font-family: var(--mono); font-size: .8rem; color: var(--fg-dim); user-select: all; }
+
+  /* "#" prefix that copies the session ID alone (not the full URL). Mirrors
+     the channel-id / commit-hash conventions of Slack/git so it reads as
+     "this string is an identifier you can grab". */
+  .sid-copy {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    background: transparent;
+    border: 1px solid rgba(21, 241, 141, 0.24);
+    border-radius: 6px;
+    color: var(--fg-muted);
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .sid-copy:hover,
+  .sid-copy:focus-visible {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(21, 241, 141, 0.06);
+    outline: none;
+  }
+  .sid-copy .sid-check { display: none; }
+  .sid-copy .sid-check svg { width: 14px; height: 14px; }
+  .sid-copy.copied .sid-hash { display: none; }
+  .sid-copy.copied .sid-check { display: inline-flex; color: var(--accent); }
 </style>
 <script src="/static/qrcode.min.js"></script>
 {% endblock %}
@@ -125,6 +158,10 @@
   <main class="feed-col">
     <div class="hero-stack">
       <div class="url-box">
+        <button class="sid-copy" id="copySidBtn" type="button" title="{{ tr.copy_id }}" aria-label="{{ tr.copy_id }}">
+          <span class="sid-hash">#</span>
+          <span class="sid-check">{{ icon_check() }}</span>
+        </button>
         <span class="url-text" id="sessionSid" title="{{ sid }}">{{ sid }}</span>
         <div class="topline-actions">
           <button class="icon-btn" id="qrBtn" type="button" aria-label="{{ tr.qr_button_label }}" aria-haspopup="dialog" aria-controls="qrModal" title="{{ tr.qr_button_label }}">
@@ -139,7 +176,7 @@
               <rect x="7" y="7" width="5" height="5" rx="1"/>
             </svg>
           </button>
-          <button class="icon-btn" id="copyUrlBtn" type="button" onclick="copyUrl()" title="{{ tr['copy'] }}">{{ icon_copy() }}{{ icon_check() }}</button>
+          <button class="icon-btn" id="copyUrlBtn" type="button" onclick="copyUrl()" title="{{ tr.copy_url }}" aria-label="{{ tr.copy_url }}">{{ icon_copy() }}{{ icon_check() }}</button>
         </div>
       </div>
 
@@ -306,6 +343,17 @@
   }
   renderSid();
   window.addEventListener('resize', renderSid);
+
+  // # button copies just the session ID (the existing copy button next to QR
+  // still copies the full URL, kept distinct because both are useful).
+  const copySidBtn = document.getElementById('copySidBtn');
+  if (copySidBtn && navigator.clipboard) {
+    copySidBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(sidFull);
+      copySidBtn.classList.add('copied');
+      setTimeout(() => copySidBtn.classList.remove('copied'), 1500);
+    });
+  }
 
   function formatSize(bytes) {
     if (bytes === 0) return '0 B';

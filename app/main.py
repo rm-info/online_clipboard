@@ -72,10 +72,8 @@ from config import (
     DEBUG,
     FILE_MAX_SIZE_BYTES,
     HEALTHZ_WARN_RATIO,
-    INSTANCE_IS_DEMO,
     POW_CHALLENGE_TTL_SECONDS,
     POW_DIFFICULTY_BITS,
-    SERVER_REPO_URL,
     SESSION_FILE_MAX_BYTES,
     SESSION_TTL_SECONDS,
     SSE_ENABLED,
@@ -365,8 +363,6 @@ async def cli_page(request: Request):
             "base_url": str(request.base_url).rstrip("/"),
             "platforms": CLI_PLATFORMS,
             "cli_repo_url": CLI_REPO_URL,
-            "server_repo_url": SERVER_REPO_URL,
-            "is_demo": INSTANCE_IS_DEMO,
         },
     )
 

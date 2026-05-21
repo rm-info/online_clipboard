@@ -8,19 +8,6 @@
   .cli-wrap { max-width: 760px; }
   .cli-what { margin: 4px 0 18px; }
 
-  .demo-notice {
-    border: 1px solid var(--border, #2a2a2e);
-    border-left: 3px solid var(--accent, #6aa9ff);
-    border-radius: 4px;
-    padding: 10px 14px;
-    margin: 0 0 14px;
-    font-size: .9rem;
-    color: var(--fg-muted, #8a8a8e);
-  }
-  .demo-notice strong { color: var(--fg, #e6e6e6); margin-right: 4px; }
-  .demo-notice a { color: var(--accent, #6aa9ff); text-decoration: none; margin-left: 6px; }
-  .demo-notice a:hover { text-decoration: underline; }
-
   .install-target { margin-top: 14px; }
   .install-target:first-of-type { margin-top: 0; }
   .install-target-label {
@@ -87,12 +74,6 @@
 
 {% block content %}
 <div class="cli-wrap">
-
-  {% if is_demo %}
-  <div class="demo-notice">
-    <strong>{{ tr.cli_demo_label }}</strong>{{ tr.cli_demo_text }}<a href="{{ server_repo_url }}" target="_blank" rel="noopener noreferrer">{{ tr.cli_demo_link }}</a>
-  </div>
-  {% endif %}
 
   <div class="panel">
     <div class="panel-label">{{ tr.cli_install_label }}</div>

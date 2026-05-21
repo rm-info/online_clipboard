@@ -262,8 +262,6 @@ deploy automatically refreshes the cached bundle on the user's next visit.
 | `CLI_INSTALL_SCRIPT_URL` | `raw.githubusercontent.com/.../install.sh` | `/install.sh` 302s here. |
 | `CLI_INSTALL_SCRIPT_PS1_URL` | `raw.githubusercontent.com/.../install.ps1` | `/install.ps1` 302s here. |
 | `CLI_REPO_URL` | `https://github.com/rm-info/online_clipboard_cli` | "Open the README" target on `/cli`. |
-| `SERVER_REPO_URL` | `https://github.com/rm-info/online_clipboard` | Self-host link target in the demo notice. |
-| `INSTANCE_IS_DEMO` | `false` | Set to `true` on a hosted demo instance to surface a "use sparingly, self-host for production" notice on `/cli`. |
 
 ---
 

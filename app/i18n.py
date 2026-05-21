@@ -55,6 +55,8 @@ TRANSLATIONS = {
         "session_expires": "Session expires",
         "share_url": "Share URL",
         "copy": "Copy",
+        "copy_id": "Copy ID",
+        "copy_url": "Copy URL",
         "copied": "Copied",
         "files": "Files",
         "messages": "Messages",
@@ -167,9 +169,6 @@ TRANSLATIONS = {
         "cli_docs_label": "Full documentation",
         "cli_docs_text": "Commands, configuration and build instructions live in the CLI repository README.",
         "cli_docs_cta": "Open the README",
-        "cli_demo_label": "Demo instance",
-        "cli_demo_text": "This is a personal homelab. Use it sparingly for evaluation; please don't run production workloads against it.",
-        "cli_demo_link": "Self-host your own →",
     },
     "fr": {
         "app_name": "presse-papiers en ligne",
@@ -218,6 +217,8 @@ TRANSLATIONS = {
         "session_expires": "Expiration de la session",
         "share_url": "URL de partage",
         "copy": "Copier",
+        "copy_id": "Copier l'identifiant",
+        "copy_url": "Copier l'URL",
         "copied": "Copié",
         "files": "Fichiers",
         "messages": "Messages",
@@ -330,9 +331,6 @@ TRANSLATIONS = {
         "cli_docs_label": "Documentation complète",
         "cli_docs_text": "Les commandes, la configuration et les instructions de build vivent dans le README du repo CLI.",
         "cli_docs_cta": "Ouvrir le README",
-        "cli_demo_label": "Instance de démo",
-        "cli_demo_text": "C'est un homelab personnel. Utilise-le avec parcimonie pour évaluer ; merci de ne pas y faire tourner de production.",
-        "cli_demo_link": "Auto-héberge ta propre instance →",
     },
 }
 
