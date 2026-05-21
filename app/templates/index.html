@@ -14,10 +14,34 @@
      handles the desktop/mobile visibility toggle for the home page. */
   .how-info-btn { display: none; }
 
+  /* Compact "join existing session" panel sitting under the create form.
+     Single-line layout on desktop, stacks on mobile via the .url-box
+     pattern reused from base.html. */
+  .join-panel { margin-top: 18px; }
+  .join-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .join-row input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--mono);
+  }
+  .join-error {
+    margin-top: 8px;
+    min-height: 1.2em;
+    font-size: .88rem;
+    color: var(--danger);
+    display: none;
+  }
+  .join-error.visible { display: block; }
+
   @media (max-width: 720px) {
     .home-grid { grid-template-columns: 1fr; }
     .how-panel { display: none; }
     .how-info-btn { display: inline-flex; }
+    .join-row { flex-direction: column; }
   }
 </style>
 {% endblock %}
@@ -88,6 +112,19 @@
     <div class="muted">{{ tr.files_added_after_create }}</div>
   </div>
 </div>
+
+<form class="panel join-panel" id="joinForm" autocomplete="off">
+  <div class="panel-label">{{ tr.join_session_title }}</div>
+  <div class="join-row">
+    <input type="text" id="joinSidInput" name="sid"
+           placeholder="{{ tr.join_session_placeholder }}"
+           spellcheck="false" autocapitalize="off">
+    <button type="submit" class="btn btn-primary">
+      {{ icon_arrow_right() }}<span class="btn-label">{{ tr.join_button_label }}</span>
+    </button>
+  </div>
+  <div class="join-error" id="joinError"></div>
+</form>
 
 <div class="modal-scrim" id="howModal" role="dialog" aria-modal="true"
      aria-labelledby="howModalTitle" aria-hidden="true">
@@ -233,6 +270,49 @@
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && modal.classList.contains('open')) close();
+    });
+  })();
+
+  // Join existing session: client-side parse + navigate. No server route
+  // needed — the catch-all GET /{sid} on the server handles validation and
+  // shows session-not-found for typos.
+  (() => {
+    const form = document.getElementById('joinForm');
+    const input = document.getElementById('joinSidInput');
+    const errEl = document.getElementById('joinError');
+    const SID_RE = /^[A-Za-z0-9_-]{5,60}$/;
+
+    function extractSid(raw) {
+      const value = raw.trim();
+      if (!value) return '';
+      // If it looks like a URL or starts with "/", pull the last path segment.
+      // The URL constructor tolerates either absolute URLs or paths thanks
+      // to the second arg providing a base.
+      if (value.includes('://') || value.startsWith('/')) {
+        try {
+          const u = new URL(value, window.location.origin);
+          return (u.pathname.split('/').filter(Boolean).pop() || '');
+        } catch (_) { /* fall through to plain value */ }
+      }
+      return value;
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const sid = extractSid(input.value);
+      if (!SID_RE.test(sid)) {
+        errEl.textContent = tr.join_invalid;
+        errEl.classList.add('visible');
+        input.focus();
+        return;
+      }
+      window.location.href = '/' + sid;
+    });
+
+    input.addEventListener('input', () => {
+      if (errEl.classList.contains('visible')) {
+        errEl.classList.remove('visible');
+      }
     });
   })();
 </script>
